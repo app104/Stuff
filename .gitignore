@@ -1,0 +1,8 @@
+!.gitignore
+.vs/*
+Debug/*
+x64/*
+RunVMware/x64/*
+RunVMware/Debug/*
+RunHide/x64/*
+RunHide/Debug/*
