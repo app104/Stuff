@@ -77,8 +77,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
     // TODO: 在此放置代码。
 	LoadIcon(hInstance, MAKEINTRESOURCE(IDI_RUNVMWARE));
-
-    return (int)DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), NULL, MainDlg_proc);
+	hInst = hInstance;
+    return (int)DialogBox(hInstance, MAKEINTRESOURCE(IDD_ABOUTBOX), NULL, MainDlg_proc);
 }
 
 int MainDlg_init(HWND hDlg);
@@ -123,6 +123,7 @@ INT_PTR CALLBACK MainDlg_proc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPa
 				TCHAR process[260];
 				swprintf(process, _TEXT("%s\\%s"), szVMwarePath,prog1);
 				ShellExecute(0, _TEXT("runas"), process, _TEXT(""), szVMwarePath, SW_SHOWNORMAL);
+				Sleep(2000);
 				goto END_PROCESS;
 			}
 			break;
@@ -133,6 +134,7 @@ INT_PTR CALLBACK MainDlg_proc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPa
 				TCHAR process[260];
 				swprintf(process, _TEXT("%s\\%s"), szVMPlayerPath, prog2);
 				ShellExecute(0, _TEXT("runas"), process, _TEXT(""), szVMPlayerPath, SW_SHOWNORMAL);
+				Sleep(2000);
 				goto END_PROCESS;
 			}
 			break;
@@ -143,6 +145,7 @@ INT_PTR CALLBACK MainDlg_proc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPa
 				TCHAR process[260];
 				swprintf(process, _TEXT("%s\\%s"), szVMPlayerPath, prog3);
 				ShellExecute(0, _TEXT("runas"), process, _TEXT(""), szVMPlayerPath, SW_SHOWNORMAL);
+				Sleep(2000);
 				goto END_PROCESS;
 			}
 			break;
@@ -151,11 +154,13 @@ INT_PTR CALLBACK MainDlg_proc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPa
 			CheckProgramState(prog1, 1);
 			CheckProgramState(prog2, 1);
 			CheckProgramState(prog3, 1);
-			//break;
+			break;
 		case IDOK:
 		case IDCANCEL:
 END_PROCESS:
+			//Sleep(2000);
 			CloseServiceHandle(scHandle);
+			KillTimer(hDlg, 100);
             EndDialog(hDlg, LOWORD(wParam));
             return (INT_PTR)TRUE;
         }
@@ -239,7 +244,7 @@ int GetVMwareVersion(TCHAR* info,int sign)
 		swprintf(pSubKey, _TEXT("SOFTWARE\\WOW6432Node\\VMware, Inc.\\"));
 		break;
 	case WINVER_7:
-		swprintf(pSubKey, _TEXT("SOFTWARE\\VMware, Inc.\\"));
+		swprintf(pSubKey, _TEXT("SOFTWARE\\Wow6432Node\\VMware, Inc.\\"));
 		break;
 	default:
 		break;
@@ -294,9 +299,9 @@ int GetSystemVersion(TCHAR* info)
 	{
 		for (int i = 0; i != 8; i++)
 		{
-			if (StrStr(str1, wv->NAME) == str1)
+			if (StrStr(str1, wv[i].NAME) == str1)
 			{
-				WindowVersion = wv->ID;
+				WindowVersion = wv[i].ID;
 				break;
 			}
 		}
