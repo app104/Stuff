@@ -16,6 +16,10 @@
   <property name="windowTitle">
    <string>新建通讯</string>
   </property>
+  <property name="windowIcon">
+   <iconset resource="comm.qrc">
+    <normaloff>:/res/res/TCP.ico</normaloff>:/res/res/TCP.ico</iconset>
+  </property>
   <property name="modal">
    <bool>true</bool>
   </property>
@@ -625,6 +629,8 @@
   <zorder>pushButtonOK</zorder>
   <zorder>tabWidget</zorder>
  </widget>
- <resources/>
+ <resources>
+  <include location="comm.qrc"/>
+ </resources>
  <connections/>
 </ui>

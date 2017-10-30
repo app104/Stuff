@@ -26,12 +26,24 @@ DEFINES += QT_DEPRECATED_WARNINGS
 SOURCES += \
         main.cpp \
         mainwindow.cpp \
-    newdialog.cpp
+    newdialog.cpp \
+    Comm.cpp
 
 HEADERS += \
         mainwindow.h \
-    newdialog.h
+    newdialog.h \
+    Comm.h
 
 FORMS += \
         mainwindow.ui \
     newdialog.ui
+
+RESOURCES += \
+    comm.qrc
+
+DISTFILES += \
+    comm.rc
+
+#修改程序的图标
+RC_FILE += \
+    comm.rc

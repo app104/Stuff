@@ -8,6 +8,4 @@ RunHide/x64/*
 RunHide/Debug/*
 Release/
 RunHide/Release/
-build-Comm-Desktop_Qt_5_9_2_MSVC2017_64bit-Debug/*
-build-Comm-Desktop_Qt_5_9_2_MSVC2017_64bit-Release/*
-build-Comm-Desktop_Qt_5_9_2_MSVC2017_64bit-Profile/*
+build*/*

@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/res">
+        <file>res/comm.ico</file>
+        <file>res/TCP.ico</file>
+    </qresource>
+</RCC>
