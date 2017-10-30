@@ -18,6 +18,8 @@ public:
 private slots:
     void on_actionnew_triggered();
 
+    void on_actionquit_triggered();
+
 private:
     Ui::MainWindow *ui;
 };
