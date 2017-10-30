@@ -5,6 +5,7 @@
 #include "RunHide.h"
 #include <stdio.h>
 #include <direct.h>
+#include "shellapi.h"
 #pragma warning(disable: 4996 ) 
 #define MAX_LOADSTRING 100
 
@@ -27,7 +28,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	if (exename == NULL) return -1;
 	WideCharToMultiByte(CP_ACP, 0, curexename, -1, exename, iLength, NULL, NULL);
 
-	int fullstop = strlen(exename);
+	int fullstop = (int)strlen(exename);
 	for (int i = fullstop - 1; i != 0; i--)
 	{
 		if ( exename[i] == '.')
@@ -64,7 +65,28 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	char cmd[MAX_PATH] = {};
 	fread(cmd, 1, MAX_PATH, fp);
 
-	int retval = WinExec(cmd, SW_SHOWDEFAULT);
-	
+	fullstop = (int)strlen(cmd);
+	backslash = fullstop;
+	for (int i = backslash - 1; i != 0; i--)
+	{
+		if (cmd[i] == '\\')
+		{
+			backslash = i;
+			break;
+		}
+	}
+	if (backslash != fullstop)
+	{
+		strncpy(path, cmd, backslash);
+		strcpy(name, cmd + backslash +1);
+		chdir(path);
+	}
+	else
+	{
+		strcpy(name, cmd);
+	}
+
+	int retval = WinExec(name, SW_HIDE);
+
     return (int)retval;
 }
