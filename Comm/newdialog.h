@@ -1,4 +1,4 @@
-#ifndef NEWDIALOG_H
+﻿#ifndef NEWDIALOG_H
 #define NEWDIALOG_H
 
 #include <QDialog>
@@ -14,6 +14,8 @@ class NewDialog : public QDialog
 public:
     explicit NewDialog(QWidget *parent = 0);
     ~NewDialog();
+
+private:
 void setenable( int num);
 
 private slots:

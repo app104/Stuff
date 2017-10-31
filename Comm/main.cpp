@@ -1,10 +1,12 @@
-#include "mainwindow.h"
+﻿#include "mainwindow.h"
 #include "Comm.h"
 #include <QApplication>
 
-Comm gcomm;
 int main(int argc, char *argv[])
 {
+    COMM x;
+    COMM y;
+
     QApplication a(argc, argv);
     MainWindow w;
     w.show();

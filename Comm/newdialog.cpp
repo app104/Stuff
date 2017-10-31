@@ -1,5 +1,8 @@
-#include "newdialog.h"
+﻿#include "newdialog.h"
 #include "ui_newdialog.h"
+#include <QString>
+#include <QByteArray>
+#include <string.h>
 
 NewDialog::NewDialog(QWidget *parent) :
     QDialog(parent),
@@ -15,6 +18,17 @@ NewDialog::~NewDialog()
 
 void NewDialog::on_pushButtonOK_clicked()//点击触发
 {
+    char lip[IP_LEN], rip[IP_LEN];
+    int lport, rport;
+    if(ui->radioButtonTCPS->isChecked())
+    {
+        QString* t = ui->comboBoxLIP->currentText();
+        QByteArray ba = t->toLatin1();
+        strncpy(lip,ba.data(), IP_LEN-1);
+    }else if()
+    {
+
+    }
     accept();
 }
 
