@@ -1,6 +1,7 @@
 ﻿#include "Comm.h"
 #include <string.h>
 
+#include <QMessageBox>
 COMM*  Comm = NULL;           //通讯列表
 
 int COMM::Count = 0;
@@ -52,13 +53,12 @@ void COMM::init_net(int type,char* lip,int lport,char* rip ,int rport)
     RPORT = rport;
 }
 
-
-
-void COMM::init()
+void COMM::run()
 {
+    int retval = 0;
     switch (TYPE) {
     case TYPE_TCPS:
-
+        retval = run_TCPS();
         break;
     case TYPE_TCPA:
 
@@ -102,7 +102,55 @@ void COMM::init()
 }
 
 
-void COMM::run()
+int COMM::run_TCPS()
 {
+    QTcpServer* server = new QTcpServer;
+    if(!server->listen(QHostAddress(LIP),quint16(LPORT)))
+    {
+        QMessageBox::warning(NULL,"warning","can't listen");
+        return -1;
+    }
+    connect(server,SIGNAL(newConnection()), this,SLOT(run_TCPA()));
+   // connect(server,SIGNAL(server->newConnection()),this,SLOT(run_TCPA()));
+    this->sleep(500000);
+    return 0;
+}
+void COMM::run_TCPA()
+{
+    socket = new QTcpSocket;
+    int i = 0;
+    while(i++ != 10)
+    {
+        socket->waitForReadyRead(1000);
+        NetRead();
+    }
+    //QObject::connect(socket, &QTcpSocket::readyRead, this, &COMM::NetRead);
 
+}
+int COMM::NetRead()
+{
+    QByteArray buffer;
+    //读取缓冲区数据
+    buffer = socket->readAll();
+    if(!buffer.isEmpty())
+     {
+         QMessageBox::warning(NULL,"get new data",tr(buffer));
+     }
+    return 0;
+}
+int is_valid_ip(char* ip)
+{
+    int a = 0, b = 0, c = 0, d = 0;
+    int len = sscanf(ip,"%d.%d.%d.%d",&a,&b,&c,&d);
+    if(len == 4)
+    {
+        if (a >= 0 && a <= 255 && \
+            b >= 0 && b <= 255 && \
+            c >= 0 && c <= 255 && \
+            d >= 0 && d <= 255 )
+        {
+            return 1;
+        }
+    }
+    return 0;
 }

@@ -42,8 +42,12 @@ RESOURCES += \
     comm.qrc
 
 DISTFILES += \
-    comm.rc
+    comm.rc \
+    README
 
 #修改程序的图标
 RC_FILE += \
     comm.rc
+
+QT += \
+    network

@@ -1,7 +1,9 @@
 ﻿#ifndef COMM_H
 #define COMM_H
+
 #include <QMutex>
 #include <QThread>
+#include <QtNetwork>
 
 #define IP_LEN 32
 
@@ -25,12 +27,16 @@ class COMM: public QThread
 {
 public:
     COMM();
-    ~COMM();
+    void destory(){delete this;} //实现COMM类的自删除，
     void COMM::init_net(int type,char* lip,int lport,char* rip ,int rport);
-
-    virtual void run();
 private:
-
+    //因为要实现类的自删除
+    ~COMM(); //据说把析构函数设为private，就不能像 COMM x;这样声明了，只能用new
+    virtual void run();
+private slots:
+    int run_TCPS();
+    void run_TCPA();
+    int NetRead();
 protected:
     int              NO;         //序号
     int              TYPE;       //通讯类型
@@ -40,6 +46,7 @@ protected:
     int              RPORT;      //远端端口
     COMM*            prev;       //指向前一个class Comm
     COMM*            next;       //指向后一个class Comm
+    QTcpSocket* socket;
 public:
     static int       Count;      //通讯序号
     static COMM*     last;       //指向最后一个class Comm
@@ -47,5 +54,7 @@ public:
 };
 
 extern COMM*  Comm;           //通讯列表
+
+int is_valid_ip(char* ip);
 
 #endif // COMM_H

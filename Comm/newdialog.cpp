@@ -1,7 +1,11 @@
 ﻿#include "newdialog.h"
 #include "ui_newdialog.h"
+#include "Comm.h"
 #include <QString>
 #include <QByteArray>
+#include <QMessageBox>
+ #include <QtNetwork>
+
 #include <string.h>
 
 NewDialog::NewDialog(QWidget *parent) :
@@ -9,6 +13,16 @@ NewDialog::NewDialog(QWidget *parent) :
     ui(new Ui::NewDialog)
 {
     ui->setupUi(this);
+    //以下为获取所有本地网卡的IPv4地址, 并加到本地列表中
+    foreach(QHostAddress addr, QNetworkInterface::allAddresses())
+    {
+        if(addr.protocol() == QAbstractSocket::IPv4Protocol)
+        {
+            QString ip = addr.toString();
+            if(ip.contains("169.254.")) continue; //去掉保留地址
+            ui->comboBoxLIP->insertItem(0,ip);
+        }
+    }
 }
 
 NewDialog::~NewDialog()
@@ -18,16 +32,21 @@ NewDialog::~NewDialog()
 
 void NewDialog::on_pushButtonOK_clicked()//点击触发
 {
-    char lip[IP_LEN], rip[IP_LEN];
-    int lport, rport;
+    char lip[IP_LEN] ={}, rip[IP_LEN] ={};
+    int lport = 0, rport = 0;
     if(ui->radioButtonTCPS->isChecked())
     {
-        QString* t = ui->comboBoxLIP->currentText();
-        QByteArray ba = t->toLatin1();
-        strncpy(lip,ba.data(), IP_LEN-1);
-    }else if()
-    {
-
+        strncpy(lip,ui->comboBoxLIP->currentText().toLatin1().data(), IP_LEN-1);
+        if(! is_valid_ip(lip)) {QMessageBox::warning(this,"Warning","Local IP invalid");return;}
+        strncpy(rip,ui->comboBoxRIP->currentText().toLatin1().data(), IP_LEN-1);
+        if(! is_valid_ip(rip)) {QMessageBox::warning(this,"Warning","Remote IP invalid");return;}
+        lport = ui->lineEditLPORT->text().toInt();
+        if(lport > 65535) {QMessageBox::warning(this,"Warning","Local Port invalid");return;}
+        rport = ui->lineEditRPORT->text().toInt();
+        if(rport > 65535) {QMessageBox::warning(this,"Warning","Remote Port invalid");return;}
+        COMM* comm = new COMM;
+        comm->init_net(TYPE_TCPS,lip,lport,rip,rport);
+        comm->start();
     }
     accept();
 }
