@@ -46,7 +46,6 @@ void NewDialog::on_pushButtonOK_clicked()//点击触发
         if(rport > 65535) {QMessageBox::warning(this,"Warning","Remote Port invalid");return;}
         COMM* comm = new COMM;
         comm->init_net(TYPE_TCPS,lip,lport,rip,rport);
-        comm->start();
     }
     accept();
 }

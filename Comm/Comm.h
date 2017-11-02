@@ -4,7 +4,7 @@
 #include <QMutex>
 #include <QThread>
 #include <QtNetwork>
-
+#include <QThread>
 #define IP_LEN 32
 
 #define TYPE_TCPS        100 //TCP Server
@@ -25,32 +25,37 @@
 
 class COMM: public QThread
 {
+    Q_OBJECT
+
+protected:
+    int               NO;         //序号
+    int               TYPE;       //通讯类型
+    char              LIP[IP_LEN];    //本地端口
+    int               LPORT;      //本地端口
+    char              RIP[IP_LEN];    //远端端口
+    int               RPORT;      //远端端口
+    COMM*             prev;       //指向前一个class Comm
+    COMM*             next;       //指向后一个class Comm
+    QTcpSocket*       socket;
+    QTcpServer*       server;
 public:
+    static int        Count;      //通讯序号
+    static COMM*      last;       //指向最后一个class Comm
+    static QMutex     mutex;      //通讯列表的互斥锁,
+    static Qt::HANDLE tid;        //线程ID
     COMM();
     void destory(){delete this;} //实现COMM类的自删除，
-    void COMM::init_net(int type,char* lip,int lport,char* rip ,int rport);
+    int COMM::init_net(int type,char* lip,int lport,char* rip ,int rport);
 private:
     //因为要实现类的自删除
     ~COMM(); //据说把析构函数设为private，就不能像 COMM x;这样声明了，只能用new
-    virtual void run();
+    //virtual void run();
+    int init();
 private slots:
     int run_TCPS();
-    void run_TCPA();
-    int NetRead();
-protected:
-    int              NO;         //序号
-    int              TYPE;       //通讯类型
-    char             LIP[IP_LEN];    //本地端口
-    int              LPORT;      //本地端口
-    char             RIP[IP_LEN];    //远端端口
-    int              RPORT;      //远端端口
-    COMM*            prev;       //指向前一个class Comm
-    COMM*            next;       //指向后一个class Comm
-    QTcpSocket* socket;
-public:
-    static int       Count;      //通讯序号
-    static COMM*     last;       //指向最后一个class Comm
-    static QMutex    mutex;      //通讯列表的互斥锁,
+//    void run_TCPA();
+//    int NetRead();
+
 };
 
 extern COMM*  Comm;           //通讯列表
