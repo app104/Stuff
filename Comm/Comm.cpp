@@ -61,7 +61,7 @@ int COMM::init()
             server->close();
             return -1;
         }
-        connect(server,SIGNAL(newConnection()),this,SLOT(run_TCPS()));
+        connect(server,SIGNAL(newConnection()),this,SLOT(TCPS_new()));
         break;
     case TYPE_TCPA:
 
@@ -134,9 +134,10 @@ int COMM::init_net(int type,char* lip,int lport,char* rip ,int rport)
 //}
 
 
-int COMM::run_TCPS()
+int COMM::TCPS_new()
 {
-    qDebug() << "run_TCPS()";
+    qDebug() << "TCP Server: "<< LIP << ":"<< LPORT << ", Get New Connection";
+
 //    QTcpServer* server = new QTcpServer;
 //    if(!server->listen(QHostAddress(LIP),quint16(LPORT)))
 //    {

@@ -52,7 +52,7 @@ private:
     //virtual void run();
     int init();
 private slots:
-    int run_TCPS();
+    int TCPS_new();
 //    void run_TCPA();
 //    int NetRead();
 
