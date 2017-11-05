@@ -3,6 +3,7 @@
 
 #include <QDialog>
 #include <QtWidgets>
+#include "mainwindow.h"
 namespace Ui {
 class NewDialog;
 }
@@ -35,6 +36,7 @@ private slots:
 
 private:
     Ui::NewDialog *ui;
+    MainWindow* pParent;
 };
 
 #endif // NEWDIALOG_H

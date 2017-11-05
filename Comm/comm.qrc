@@ -1,6 +1,12 @@
 <RCC>
-    <qresource prefix="/res">
+    <qresource prefix="/">
         <file>res/comm.ico</file>
         <file>res/TCP.ico</file>
+        <file>res/tcps.png</file>
+        <file>res/broadcast.png</file>
+        <file>res/mdest.png</file>
+        <file>res/msource.png</file>
+        <file>res/udp.png</file>
+        <file>res/tcpc.png</file>
     </qresource>
 </RCC>

@@ -18,7 +18,7 @@
   </property>
   <property name="windowIcon">
    <iconset resource="comm.qrc">
-    <normaloff>:/res/res/TCP.ico</normaloff>:/res/res/TCP.ico</iconset>
+    <normaloff>:/res/TCP.ico</normaloff>:/res/TCP.ico</iconset>
   </property>
   <property name="modal">
    <bool>true</bool>

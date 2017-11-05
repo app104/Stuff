@@ -4,7 +4,8 @@
 #
 #-------------------------------------------------
 
-QT       += core gui
+QT       += core gui network
+
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -48,6 +49,3 @@ DISTFILES += \
 #修改程序的图标
 RC_FILE += \
     comm.rc
-
-QT += \
-    network

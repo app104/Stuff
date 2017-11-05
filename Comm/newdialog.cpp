@@ -1,4 +1,5 @@
 ﻿#include "newdialog.h"
+#include "mainwindow.h"
 #include "ui_newdialog.h"
 #include "Comm.h"
 #include <QString>
@@ -13,6 +14,7 @@ NewDialog::NewDialog(QWidget *parent) :
     ui(new Ui::NewDialog)
 {
     ui->setupUi(this);
+    pParent = (MainWindow*)parentWidget();
     //以下为获取所有本地网卡的IPv4地址, 并加到本地列表中
     foreach(QHostAddress addr, QNetworkInterface::allAddresses())
     {
@@ -46,6 +48,8 @@ void NewDialog::on_pushButtonOK_clicked()//点击触发
         if(rport > 65535) {QMessageBox::warning(this,"Warning","Remote Port invalid");return;}
         COMM* comm = new COMM;
         comm->init_net(TYPE_TCPS,lip,lport,rip,rport);
+        pParent->treeAddItem(comm);
+        pParent->tableAddItem(NULL,NULL,NULL, u8"建立一个TCP Server通道");
     }
     accept();
 }

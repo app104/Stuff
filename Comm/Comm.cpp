@@ -126,52 +126,31 @@ int COMM::init_net(int type,char* lip,int lport,char* rip ,int rport)
     return 0;
 }
 
-//void COMM::run()
-//{
-//    tid = this->currentThreadId();
-//    qDebug() << "in the thread" << tid;
-//    this->sleep(50000);
-//}
-
-
 int COMM::TCPS_new()
 {
     qDebug() << "TCP Server: "<< LIP << ":"<< LPORT << ", Get New Connection";
-
-//    QTcpServer* server = new QTcpServer;
-//    if(!server->listen(QHostAddress(LIP),quint16(LPORT)))
-//    {
-//        QMessageBox::warning(NULL,"warning","can't listen");
-//        return -1;
-//    }
-    //connect(server,SIGNAL(newConnection()), this,SLOT(run_TCPA()));
-   // connect(server,SIGNAL(server->newConnection()),this,SLOT(run_TCPA()));
+    tcpsock = server->nextPendingConnection();
+    if (tcpsock == NULL) return -1;
+//    COMM* comm = new COMM;
+//    comm->TYPE = TYPE_TCPA;
+    connect(tcpsock,SIGNAL(readyRead()),this,SLOT(TCP_read()));
+    connect(tcpsock,SIGNAL(disconnected()), this,SLOT(TCP_close()));
+    //gui->tableAddItem(NULL,NULL,NULL,u8"TCP Server 接收了一个新的连接");
     return 0;
 }
-//void COMM::run_TCPA()
-//{
-   // qDebug() << u8"run_TCPA()";
-//    socket = new QTcpSocket;
-//    int i = 0;
-//    while(i++ != 10)
-//    {
-//        socket->waitForReadyRead(1000);
-//        NetRead();
-//    }
-//    //QObject::connect(socket, &QTcpSocket::readyRead, this, &COMM::NetRead);
 
-//}
-//int COMM::NetRead()
-//{
-//    QByteArray buffer;
-//    //读取缓冲区数据
-//    buffer = socket->readAll();
-//    if(!buffer.isEmpty())
-//     {
-//         QMessageBox::warning(NULL,"get new data",tr(buffer));
-//     }
-//    return 0;
-//}
+int COMM::TCP_read()
+{
+    QString data(tcpsock->readAll());
+    qDebug() << data;
+    return 0;
+}
+int COMM::TCP_close()
+{
+    tcpsock->close();
+    qDebug() << u8"关闭连接";
+    return 0;
+}
 int is_valid_ip(char* ip)
 {
     int a = 0, b = 0, c = 0, d = 0;
