@@ -14,9 +14,10 @@ class NewDialog : public QDialog
 
 public:
     explicit NewDialog(QWidget *parent = 0);
-    ~NewDialog();
+    void destory(){delete this;}
 
 private:
+    ~NewDialog();
 void setenable( int num);
 
 private slots:
@@ -33,7 +34,8 @@ private slots:
     void on_radioButtonMulticast_toggled(bool checked);
 
     void on_radioButtonSerial_toggled(bool checked);
-
+signals:
+    void s_tableAddItem(const QString &, const QString &, const QString &, const QString &);
 private:
     Ui::NewDialog *ui;
     MainWindow* pParent;

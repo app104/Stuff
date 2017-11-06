@@ -3,11 +3,13 @@
 #include "newdialog.h"
 #include "Comm.h"
 double COLUMN =  (1.0/3.0);         //Column
+MainWindow * gui;
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+    gui = this;
     //改变窗口背景
     QPalette palette;
     palette.setBrush(this->backgroundRole(), Qt::gray);
@@ -32,6 +34,9 @@ MainWindow::MainWindow(QWidget *parent) :
     {
         ui->tableView->setColumnWidth(i,c[i]);
     }
+//    COMM* comm = new COMM;
+//    connect(Comm,SIGNAL(s_tableAddItem(QString,QString,QString,QString)),this,SLOT(tableAddItem(QString,QString,QString,QString)));
+
 }
 
 MainWindow::~MainWindow()
@@ -99,11 +104,13 @@ void MainWindow::treeDelItem(int ID)
 
 void MainWindow::tableAddItem(const QString &channel, const QString &dir, const QString &type, const QString &data)
 {
+//    static int x = 0;
+//    qDebug() << u8"收到tableAddItem的调用" << x++;
     int rownum = mtable->rowCount();
     mtable->setItem(rownum,0,new QStandardItem(QDateTime::currentDateTime().toString("hh:mm:ss.zzz")));
-    if(channel.size()) mtable->setItem(rownum,4,new QStandardItem(channel));
-    if(dir.size()) mtable->setItem(rownum,4,new QStandardItem(dir));
-    if(type.size()) mtable->setItem(rownum,4,new QStandardItem(type));
+    if(channel.size()) mtable->setItem(rownum,1,new QStandardItem(channel));
+    if(dir.size()) mtable->setItem(rownum,2,new QStandardItem(dir));
+    if(type.size()) mtable->setItem(rownum,3,new QStandardItem(type));
     if(data.size()) mtable->setItem(rownum,4,new QStandardItem(data));
 }
 void MainWindow::tableClear()

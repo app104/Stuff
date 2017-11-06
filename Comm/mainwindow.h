@@ -19,7 +19,6 @@ public:
     void treeAddItem(COMM* comm);
     void treeDelItem(int ID);
 
-    void tableAddItem(const QString &channel, const QString &dir, const QString &type, const QString & data);
     void tableClear();
    // bool event(QEvent *event);
     virtual void resizeEvent(QResizeEvent *event); //窗口改变大小时调用此函数
@@ -33,11 +32,15 @@ private slots:
     void on_actionnew_triggered();
 
     void on_actionquit_triggered();
+    void tableAddItem(const QString &channel, const QString &dir, const QString &type, const QString & data);
+
+signals:
+
 
 private:
     Ui::MainWindow *ui;
     QStandardItemModel* mtree;
     QStandardItemModel* mtable;
 };
-
+extern MainWindow * gui;
 #endif // MAINWINDOW_H

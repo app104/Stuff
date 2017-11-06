@@ -25,10 +25,19 @@ NewDialog::NewDialog(QWidget *parent) :
             ui->comboBoxLIP->insertItem(0,ip);
         }
     }
+    connect(this,\
+            SIGNAL(s_tableAddItem(QString,QString,QString,QString)),\
+            pParent,\
+            SLOT(tableAddItem(QString,QString,QString,QString)));
 }
 
 NewDialog::~NewDialog()
 {
+    qDebug() << "~NewDialog( )";
+    disconnect(this,\
+            SIGNAL(s_tableAddItem(QString,QString,QString,QString)),\
+            pParent,\
+            SLOT(tableAddItem(QString,QString,QString,QString)));
     delete ui;
 }
 
@@ -49,9 +58,11 @@ void NewDialog::on_pushButtonOK_clicked()//点击触发
         COMM* comm = new COMM;
         comm->init_net(TYPE_TCPS,lip,lport,rip,rport);
         pParent->treeAddItem(comm);
-        pParent->tableAddItem(NULL,NULL,NULL, u8"建立一个TCP Server通道");
+        emit s_tableAddItem(NULL,NULL,NULL, u8"建立一个TCP Server通道");
+        //pParent->tableAddItem(NULL,NULL,NULL, u8"建立一个TCP Server通道");
     }
-    accept();
+    this->destory();
+   // accept();
 }
 
 void NewDialog::setenable( int num)

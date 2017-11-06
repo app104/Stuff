@@ -1,10 +1,8 @@
 ﻿#ifndef COMM_H
 #define COMM_H
 
-#include <QMutex>
-#include <QThread>
 #include <QtNetwork>
-#include <QThread>
+#include <QMainWindow>
 
 #define IP_LEN 32
 
@@ -23,8 +21,8 @@
 #define TYPE_SSLC        112 //SSL Client
 
 #define TYPE_SERIAL      200 //Serial 串口
-
-class COMM: public QThread
+class MainWindow;
+class COMM: public QMainWindow
 {
     Q_OBJECT
 
@@ -52,11 +50,15 @@ private:
     ~COMM(); //据说把析构函数设为private，就不能像 COMM x;这样声明了，只能用new
     //virtual void run();
     int init();
+
 private slots:
     int TCPS_new();
     int TCP_read();
     //int TCP_write();
     int TCP_close();
+signals:
+    void s_tableAddItem(const QString &, const QString &, const QString &, const QString &);
+
 };
 
 extern COMM*  Comm;           //通讯列表

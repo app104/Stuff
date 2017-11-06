@@ -1,8 +1,9 @@
 ﻿#include "Comm.h"
+#include "mainwindow.h"
 #include <string.h>
 
 #include <QMessageBox>
-#include <QThread>
+#include <QMainWindow>
 COMM*  Comm = NULL;           //通讯列表
 
 int COMM::Count = 0;
@@ -11,6 +12,11 @@ QMutex COMM::mutex;
 Qt::HANDLE COMM::tid = 0;
 COMM::COMM()
 {
+    //因为子线程不能直接写主窗口，所以只能通过SIGNAL-SLOT来改变主窗口
+    connect(this,\
+            SIGNAL(s_tableAddItem(QString,QString,QString,QString)),\
+            gui,\
+            SLOT(tableAddItem(QString,QString,QString,QString)));
     if(Comm == NULL)
     {
         Comm = this;
@@ -27,7 +33,12 @@ COMM::COMM()
 }
 COMM::~COMM()
 {
+    disconnect(this,\
+            SIGNAL(s_tableAddItem(QString,QString,QString,QString)),\
+            gui,\
+            SLOT(tableAddItem(QString,QString,QString,QString)));
     mutex.lock();
+
     if (last == this ) //在序列尾部
     {
         if(this->prev != NULL) //序列中不是只有一个
@@ -131,11 +142,23 @@ int COMM::TCPS_new()
     qDebug() << "TCP Server: "<< LIP << ":"<< LPORT << ", Get New Connection";
     tcpsock = server->nextPendingConnection();
     if (tcpsock == NULL) return -1;
-//    COMM* comm = new COMM;
-//    comm->TYPE = TYPE_TCPA;
+    COMM* comm = new COMM;
+    comm->TYPE = TYPE_TCPA;
+    strncpy(comm->LIP,tcpsock->localAddress().toString().toLocal8Bit().data(),IP_LEN);
+    comm->LPORT = tcpsock->localPort();
+    strncpy(comm->RIP,tcpsock->peerAddress().toString().toLocal8Bit().data(),IP_LEN);
+    comm->RPORT = tcpsock->peerPort();
     connect(tcpsock,SIGNAL(readyRead()),this,SLOT(TCP_read()));
     connect(tcpsock,SIGNAL(disconnected()), this,SLOT(TCP_close()));
-    //gui->tableAddItem(NULL,NULL,NULL,u8"TCP Server 接收了一个新的连接");
+    QString str(u8"TCP Server 接收了一个新的连接, 本地:");
+    str += comm->LIP;
+    str += ":";
+    str += QString::number(comm->LPORT);
+    str += " ";
+    str += comm->RIP;
+    str += ":";
+    str += QString::number(comm->RPORT);
+    emit this->s_tableAddItem(NULL,NULL,NULL,str);
     return 0;
 }
 
