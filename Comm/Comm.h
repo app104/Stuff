@@ -21,6 +21,9 @@
 #define TYPE_SSLC        112 //SSL Client
 
 #define TYPE_SERIAL      200 //Serial 串口
+
+
+
 class MainWindow;
 class COMM: public QMainWindow
 {

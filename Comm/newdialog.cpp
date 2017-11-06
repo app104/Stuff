@@ -14,7 +14,16 @@ NewDialog::NewDialog(QWidget *parent) :
     ui(new Ui::NewDialog)
 {
     ui->setupUi(this);
-    pParent = (MainWindow*)parentWidget();
+    MainWindow* pParent = (MainWindow*)parentWidget();
+    connect(this,\
+            SIGNAL(s_tableAddItem(QString,QString,QString,QString)),\
+            pParent,\
+            SLOT(tableAddItem(QString,QString,QString,QString)));
+    connect(this,\
+            SIGNAL(s_treeAddItem(COMM*)),\
+            pParent,\
+            SLOT(treeAddItem(COMM*)));
+
     //以下为获取所有本地网卡的IPv4地址, 并加到本地列表中
     foreach(QHostAddress addr, QNetworkInterface::allAddresses())
     {
@@ -25,19 +34,21 @@ NewDialog::NewDialog(QWidget *parent) :
             ui->comboBoxLIP->insertItem(0,ip);
         }
     }
-    connect(this,\
-            SIGNAL(s_tableAddItem(QString,QString,QString,QString)),\
-            pParent,\
-            SLOT(tableAddItem(QString,QString,QString,QString)));
+
 }
 
 NewDialog::~NewDialog()
 {
     qDebug() << "~NewDialog( )";
+    MainWindow* pParent = (MainWindow*)parentWidget();
     disconnect(this,\
             SIGNAL(s_tableAddItem(QString,QString,QString,QString)),\
             pParent,\
             SLOT(tableAddItem(QString,QString,QString,QString)));
+    disconnect(this,\
+            SIGNAL(s_treeAddItem(COMM*)),\
+            pParent,\
+            SLOT(treeAddItem(COMM*)));
     delete ui;
 }
 
@@ -57,8 +68,8 @@ void NewDialog::on_pushButtonOK_clicked()//点击触发
         if(rport > 65535) {QMessageBox::warning(this,"Warning","Remote Port invalid");return;}
         COMM* comm = new COMM;
         comm->init_net(TYPE_TCPS,lip,lport,rip,rport);
-        pParent->treeAddItem(comm);
-        emit s_tableAddItem(NULL,NULL,NULL, u8"建立一个TCP Server通道");
+        emit s_treeAddItem(comm);
+        emit s_tableAddItem(NULL,NULL,NULL, QString(u8"建立一个TCP Server通道") + lip+u8":" + QString::number(lport));
         //pParent->tableAddItem(NULL,NULL,NULL, u8"建立一个TCP Server通道");
     }
     this->destory();

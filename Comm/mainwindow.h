@@ -16,9 +16,6 @@ public:
     explicit MainWindow(QWidget *parent = 0);
     ~MainWindow();
 
-    void treeAddItem(COMM* comm);
-    void treeDelItem(int ID);
-
     void tableClear();
    // bool event(QEvent *event);
     virtual void resizeEvent(QResizeEvent *event); //窗口改变大小时调用此函数
@@ -33,7 +30,8 @@ private slots:
 
     void on_actionquit_triggered();
     void tableAddItem(const QString &channel, const QString &dir, const QString &type, const QString & data);
-
+    void treeAddItem(COMM* comm);
+    void treeDelItem(int ID);
 signals:
 
 

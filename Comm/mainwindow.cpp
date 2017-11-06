@@ -22,7 +22,7 @@ MainWindow::MainWindow(QWidget *parent) :
     mtable->setColumnCount(5);
     QStringList slist;
     slist << u8"时间" << u8"通道" <<u8"方向" << u8"类型" << u8"报文";
-    int c[] = {100,50,50,50,500};
+    int c[] = {80,40,40,40,1000};
     for(int i = 0; i != 5; i++)
     {
         mtable->setHeaderData(i,Qt::Horizontal,slist.at(i));
@@ -34,9 +34,6 @@ MainWindow::MainWindow(QWidget *parent) :
     {
         ui->tableView->setColumnWidth(i,c[i]);
     }
-//    COMM* comm = new COMM;
-//    connect(Comm,SIGNAL(s_tableAddItem(QString,QString,QString,QString)),this,SLOT(tableAddItem(QString,QString,QString,QString)));
-
 }
 
 MainWindow::~MainWindow()

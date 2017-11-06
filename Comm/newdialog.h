@@ -4,6 +4,7 @@
 #include <QDialog>
 #include <QtWidgets>
 #include "mainwindow.h"
+#include "Comm.h"
 namespace Ui {
 class NewDialog;
 }
@@ -36,9 +37,10 @@ private slots:
     void on_radioButtonSerial_toggled(bool checked);
 signals:
     void s_tableAddItem(const QString &, const QString &, const QString &, const QString &);
+    void s_treeAddItem(COMM *);
 private:
     Ui::NewDialog *ui;
-    MainWindow* pParent;
+
 };
 
 #endif // NEWDIALOG_H
