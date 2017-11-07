@@ -37,7 +37,7 @@ private slots:
     void on_radioButtonSerial_toggled(bool checked);
 signals:
     void s_tableAddItem(const QString &, const QString &, const QString &, const QString &);
-    void s_treeAddItem(COMM *);
+    void s_treeAddItem(int, int, QStringList&);
 private:
     Ui::NewDialog *ui;
 

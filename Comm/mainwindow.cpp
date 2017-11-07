@@ -56,28 +56,25 @@ void MainWindow::on_actionquit_triggered()
     this->close();
 }
 
-void MainWindow::treeAddItem(COMM *comm)
+void MainWindow::treeAddItem(int type, int id, QStringList& qinfo) //qinfo 数量需要为奇数个,第一个为通道信息,剩下的连续成对
 {
+#define _TREEITEM_NUM_ 1
+    type -= TYPE_TCPS;
+    if(type >= _TREEITEM_NUM_) return;
+    typedef struct _TREEITEM_{
+        char cpic[32];
+        char ctype[32];
+    }TREEITEM;
+    TREEITEM treeitem[] ={
+        {":/res/tcps.png", "TCPS"}, // tcp server
+        {":/res/tcpa.png", "TCPA"}  //tcp server accept
+    };
     QStringList sl; //0: 图片信息,1:通道信息,
-    switch(comm->TYPE)
-    {
-    case TYPE_TCPS:
-        sl.append(":/res/tcps.png");
-        sl.append (u8"通道" + QString::number(comm->NO));
-        sl.append("TCP Server");
-        sl.append(u8"TCPS");  //第三个是第一行信息
-        sl.append(QString(u8"本地:")+ comm->LIP + QString::number(comm->LPORT));
-        break;
-    case TYPE_TCPA:
-        break;
-    case TYPE_TCPC:
-        break;
-    case TYPE_UDP:
-        break;
-    default:
-        break;
-    }
-
+    sl.append(treeitem[type].cpic);
+    sl.append(u8"通道ID");
+    sl.append (QString::number(id));
+    sl.append(treeitem[type].ctype);
+    sl += qinfo;
     QStandardItem* item = new QStandardItem(QIcon(sl.at(0)), sl.at(1));
     QList<QString>::Iterator it = sl.begin() + 3,itend = sl.end();
     int i = 0;
@@ -90,7 +87,7 @@ void MainWindow::treeAddItem(COMM *comm)
         it ++;
     }
     mtree->appendRow(item);
-    mtree->setItem(mtree->indexFromItem(item).row(),1,new QStandardItem(sl.at(3)));
+    mtree->setItem(mtree->indexFromItem(item).row(),1,new QStandardItem(sl.at(2)));
 }
 
 void MainWindow::treeDelItem(int ID)

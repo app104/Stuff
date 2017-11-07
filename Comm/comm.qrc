@@ -8,5 +8,6 @@
         <file>res/msource.png</file>
         <file>res/udp.png</file>
         <file>res/tcpc.png</file>
+        <file>res/tcpa.png</file>
     </qresource>
 </RCC>

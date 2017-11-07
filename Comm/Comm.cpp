@@ -17,6 +17,10 @@ COMM::COMM()
             SIGNAL(s_tableAddItem(QString,QString,QString,QString)),\
             gui,\
             SLOT(tableAddItem(QString,QString,QString,QString)));
+    connect(this,\
+            SIGNAL(s_treeAddItem(int, int, QStringList&)),\
+            gui,\
+            SLOT(treeAddItem(int, int, QStringList&)));
     if(Comm == NULL)
     {
         Comm = this;
@@ -37,6 +41,10 @@ COMM::~COMM()
             SIGNAL(s_tableAddItem(QString,QString,QString,QString)),\
             gui,\
             SLOT(tableAddItem(QString,QString,QString,QString)));
+    disconnect(this,\
+            SIGNAL(s_treeAddItem(int, int, QStringList&)),\
+            gui,\
+            SLOT(treeAddItem(int, int, QStringList&)));
     mutex.lock();
 
     if (last == this ) //在序列尾部
@@ -150,15 +158,21 @@ int COMM::TCPS_new()
     comm->RPORT = tcpsock->peerPort();
     connect(tcpsock,SIGNAL(readyRead()),this,SLOT(TCP_read()));
     connect(tcpsock,SIGNAL(disconnected()), this,SLOT(TCP_close()));
-    QString str(u8"TCP Server 接收了一个新的连接, 本地:");
+    QString str(u8"本地:");
     str += comm->LIP;
-    str += ":";
+    str += u8":";
     str += QString::number(comm->LPORT);
-    str += " ";
+    str += u8" ";
     str += comm->RIP;
-    str += ":";
     str += QString::number(comm->RPORT);
-    emit this->s_tableAddItem(NULL,NULL,NULL,str);
+    QString str2(u8"TCP Server新连入");
+    str2+= this->LIP;
+    str2+= QString::number(this->RPORT);
+    str2+= u8" ";
+    str2 += str;
+    emit this->s_tableAddItem(NULL,NULL,NULL,str2);
+    QStringList sl(str);
+    emit this->s_treeAddItem(TYPE_TCPA,comm->NO,sl);
     return 0;
 }
 

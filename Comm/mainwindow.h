@@ -30,7 +30,7 @@ private slots:
 
     void on_actionquit_triggered();
     void tableAddItem(const QString &channel, const QString &dir, const QString &type, const QString & data);
-    void treeAddItem(COMM* comm);
+    void treeAddItem(int type, int id, QStringList& qinfo);
     void treeDelItem(int ID);
 signals:
 

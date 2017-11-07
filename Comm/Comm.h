@@ -61,7 +61,7 @@ private slots:
     int TCP_close();
 signals:
     void s_tableAddItem(const QString &, const QString &, const QString &, const QString &);
-
+    void s_treeAddItem(int, int, QStringList&);
 };
 
 extern COMM*  Comm;           //通讯列表
