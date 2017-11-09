@@ -64,7 +64,7 @@ void NewDialog::on_pushButtonOK_clicked()//点击触发
     };
     char lip[IP_LEN] ={}, rip[IP_LEN] ={};
     int lport = 0, rport = 0;
-    int type = -1;
+
     if(ui->radioButtonTCPS->isChecked() || ui->radioButtonTCPC->isChecked())
     {
         strncpy(lip,ui->comboBoxLIP->currentText().toLatin1().data(), IP_LEN-1);
@@ -75,11 +75,31 @@ void NewDialog::on_pushButtonOK_clicked()//点击触发
         if(lport > 65535) {QMessageBox::warning(this,"Warning","Local Port invalid");return;}
         rport = ui->lineEditRPORT->text().toInt();
         if(rport > 65535) {QMessageBox::warning(this,"Warning","Remote Port invalid");return;}
-        if(ui->radioButtonTCPS->isChecked()) type = TYPE_TCPS; else type = TYPE_TCPC;
-        COMM* comm = new COMM(type,lip,lport,rip,rport);
-        QString ipinfo (QString(u8"本地:")+ lip + u8":" +QString::number(lport));
-        QStringList sl(ipinfo);
-        emit s_treeAddItem(comm->TYPE,comm->NO,sl);
+        COMM* comm;
+        QString ipinfo;
+        QStringList sl;
+        if(ui->radioButtonTCPS->isChecked())
+        {
+            comm = new COMM(TYPE_TCPS,lip,lport,rip,rport);
+            ipinfo = (QString(u8"本地:")+ lip + u8":" +QString::number(lport));
+            sl.append(ipinfo);
+            emit s_treeAddItem(comm->TYPE,comm->NO,sl);
+        }
+        else if(ui->radioButtonTCPC->isChecked())
+        {
+            comm = new COMM(TYPE_TCPC,lip,lport,rip,rport);
+            ipinfo = (QString(u8"远端:")+ rip + u8":" +QString::number(rport));
+            sl.append(ipinfo);
+            emit s_treeAddItem(comm->TYPE,comm->NO,sl);
+        }
+        else if(ui->radioButtonUDP->isChecked())
+        {
+            comm = new COMM(TYPE_UDP,lip,lport,rip,rport);
+            ipinfo = (QString(u8"本地:")+ lip + u8":" +QString::number(lport) + u8" " + \
+                      QString(u8"远端:")+ rip + u8":" +QString::number(rport));
+            sl.append(ipinfo);
+            emit s_treeAddItem(comm->TYPE,comm->NO,sl);
+        }
         emit s_tableAddItem(QString(u8"通道") + QString::number(comm->NO),NULL,NULL, QString(notice[comm->TYPE - TYPE_TCPS]) + ipinfo);
     }
     this->destory();

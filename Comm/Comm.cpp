@@ -4,47 +4,32 @@
 
 #include <QMessageBox>
 #include <QMainWindow>
-COMM*  Comm = NULL;           //通讯列表
 
 int COMM::Count = 0;
+COMM* COMM::first  = NULL;
 COMM* COMM::last  = NULL;
 QMutex COMM::mutex;
-Qt::HANDLE COMM::tid = 0;
+
 COMM::COMM()
 {
-    //因为子线程不能直接写主窗口，所以只能通过SIGNAL-SLOT来改变主窗口
-    connect(this,\
-            SIGNAL(s_tableAddItem(QString,QString,QString,QString)),\
-            gui,\
-            SLOT(tableAddItem(QString,QString,QString,QString)));
-    connect(this,\
-            SIGNAL(s_treeAddItem(int, int, QStringList&)),\
-            gui,\
-            SLOT(treeAddItem(int, int, QStringList&)));
-    connect(this,\
-            SIGNAL(s_treeDelItem(int)),\
-            gui,\
-            SLOT(treeDelItem(int)));
-    if(Comm == NULL)
-    {
-        Comm = this;
-        prev = NULL;
-        next = NULL;
-    }
-    else
-    {
-        last->next = this;
-        this->prev = last;
-    }
-    last = this;
-    NO = Count ++;
+    init();
 }
 COMM::COMM(int type,char* lip,int lport,char* rip ,int rport)
 {
-    COMM();
+    init();
     init_net(type,lip,lport,rip ,rport);
 }
-
+COMM::COMM( QTcpSocket* sock,int type,char* lip,int lport,char* rip ,int rport)
+{
+    init();
+    tcpsock = sock;
+    init_net(type, lip, lport, rip , rport);
+    if (type ==TYPE_TCPA &&sock != NULL)
+    {
+        connect(tcpsock,SIGNAL(readyRead()), this,SLOT(TCP_read()));
+        connect(tcpsock,SIGNAL(disconnected()), this,SLOT(TCP_close()));
+    }
+}
 COMM::~COMM()
 {
     disconnect(this,\
@@ -60,74 +45,82 @@ COMM::~COMM()
             gui,\
             SLOT(treeDelItem(int)));
     mutex.lock();
-
-    if (last == this ) //在序列尾部
+    if( first == last) //序列中只有一个元素
     {
-        if(this->prev != NULL) //序列中不是只有一个
+        first = NULL;
+        last = NULL;
+    }
+   else
+    {
+        if (last == this ) //在序列尾部
         {
-            prev->next = NULL;
             last = prev;
+            prev->next = NULL;
         }
         else
         {
-            Comm = NULL;
-            last = NULL;
-            tid = 0;
+            if(first == this) //序列中第一个
+            {
+                first = next;
+                next->prev = NULL;
+
+            }
+            else
+            {
+                prev->next = next;
+                next->prev = prev;
+            }
+
         }
+    }
+
+    mutex.unlock();
+}
+void COMM::init()
+{
+
+    //因为子线程不能直接写主窗口，所以只能通过SIGNAL-SLOT来改变主窗口
+    connect(this,\
+            SIGNAL(s_tableAddItem(QString,QString,QString,QString)),\
+            gui,\
+            SLOT(tableAddItem(QString,QString,QString,QString)));
+    connect(this,\
+            SIGNAL(s_treeAddItem(int, int, QStringList&)),\
+            gui,\
+            SLOT(treeAddItem(int, int, QStringList&)));
+    connect(this,\
+            SIGNAL(s_treeDelItem(int)),\
+            gui,\
+            SLOT(treeDelItem(int)));
+    if(first == NULL)
+    {
+        first = this;
+        prev = NULL;
+        next = NULL;
     }
     else
     {
-        prev->next = next;
-        next->prev = prev;
+        last->next = this;
+        this->prev = last;
+        this->next = NULL;
     }
-    Count --;
-    mutex.unlock();
-}
-int COMM::init()
-{
-    switch (TYPE) {
-    case TYPE_TCPS:
-
-        break;
-    case TYPE_TCPA:
-        break;
-    case TYPE_TCPC:
-        qDebug() << RIP << RPORT;
-        tcpsock->connectToHost(QHostAddress(RIP),quint16(RPORT),QTcpSocket::ReadWrite);
-        if (tcpsock == NULL)
-        {
-            emit s_tableAddItem(QString(u8"通道ID")+ QString::number(this->NO),NULL,NULL,QString(u8"连接失败"));
-            return -1;
-        }
-        connect(tcpsock,SIGNAL(connected()),this,SLOT(TCP_connect()));
-        break;
-    case TYPE_UDP:
-
-        break;
-    case TYPE_UDPBS:
-
-        break;
-    case TYPE_UDPBR:
-
-        break;
-
-    default:
-        break;
-    }
-
-
-    return 0;
+    last = this;
+    NO = Count ++;
 }
 
 int COMM::init_net(int type,char* lip,int lport,char* rip ,int rport)
 {
     mutex.lock();
-    for (COMM* p = Comm; p != NULL; p = p->next )
+    for (COMM* p = first; p != NULL; p = p->next )
     {
         switch (type)
         {
         case TYPE_TCPS:
+        case TYPE_UDP:
             if(strncmp(lip,p->LIP,strlen(p->LIP)) == 0 && p->LPORT == lport) { mutex.unlock();return -1;}
+            break;
+        case TYPE_UDP:
+            if(strncmp(lip,p->LIP,strlen(p->LIP)) == 0 && p->LPORT != 0 && p->LPORT == lport ) { mutex.unlock();return -1;}
             break;
         default:
             break;
@@ -158,7 +151,16 @@ int COMM::init_net(int type,char* lip,int lport,char* rip ,int rport)
     case TYPE_TCPC:
         strncpy(RIP,rip,IP_LEN -1);
         RPORT = rport;
-        if(this->init()) { mutex.unlock();return -1;}
+        qDebug() << RIP << RPORT;
+        tcpsock = new QTcpSocket;
+        tcpsock->connectToHost(QHostAddress(RIP),quint16(RPORT),QTcpSocket::ReadWrite);
+        if (tcpsock->state() == QAbstractSocket::UnconnectedState)
+        {
+            emit s_tableAddItem(QString(u8"通道ID")+ QString::number(this->NO),NULL,NULL,QString(u8"连接失败"));
+            mutex.unlock();
+            return -1;
+        }
+        connect(tcpsock,SIGNAL(connected()),this,SLOT(TCP_connect()));
         break;
     case TYPE_UDP:
 
@@ -189,10 +191,7 @@ int COMM::TCPS_new()
     lport = sock->localPort();
     strncpy(rip, sock->peerAddress().toString().toLocal8Bit().data(),IP_LEN);
     rport = sock->peerPort();
-    COMM* comm = new COMM(TYPE_TCPA,lip,lport,rip,rport);
-    comm->tcpsock = sock;
-    connect(sock,SIGNAL(readyRead()), comm,SLOT(TCP_read()));
-    connect(sock,SIGNAL(disconnected()), comm,SLOT(TCP_close()));
+    COMM* comm = new COMM(sock,TYPE_TCPA,lip,lport,rip,rport);
 
     QString str(u8"本地:");
     str += comm->LIP;

@@ -64,7 +64,7 @@
        <string>TCP Server</string>
       </property>
       <property name="checked">
-       <bool>true</bool>
+       <bool>false</bool>
       </property>
      </widget>
      <widget class="QRadioButton" name="radioButtonTCPC">
@@ -80,7 +80,7 @@
        <string>TCP Client</string>
       </property>
       <property name="checked">
-       <bool>false</bool>
+       <bool>true</bool>
       </property>
      </widget>
      <widget class="QRadioButton" name="radioButtonUDP">
@@ -204,6 +204,9 @@
      </property>
      <property name="editable">
       <bool>true</bool>
+     </property>
+     <property name="currentText">
+      <string>127.0.0.1</string>
      </property>
      <item>
       <property name="text">

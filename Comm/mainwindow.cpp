@@ -63,7 +63,7 @@ void MainWindow::on_actionquit_triggered()
 
 void MainWindow::treeAddItem(int type, int id, QStringList& qinfo) //qinfo 数量需要为奇数个,第一个为通道信息,剩下的连续成对
 {
-#define _TREEITEM_NUM_ 2
+#define _TREEITEM_NUM_ 3
     type -= TYPE_TCPS;
     if(type >= _TREEITEM_NUM_) return;
     typedef struct _TREEITEM_{
