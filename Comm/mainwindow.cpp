@@ -18,11 +18,14 @@ MainWindow::MainWindow(QWidget *parent) :
     mtree = new QStandardItemModel(ui->treeView);
     mtree->setHorizontalHeaderLabels(QStringList()<<QStringLiteral("项目名")<<QStringLiteral("信息"));
     ui->treeView->setModel(mtree);
+    ui->treeView->setEditTriggers(QTableView::NoEditTriggers);
+    ui->treeView->setSelectionBehavior(QTableView::SelectRows);
+
     mtable = new QStandardItemModel(ui->tableView);
     mtable->setColumnCount(5);
     QStringList slist;
     slist << u8"时间" << u8"通道" <<u8"方向" << u8"类型" << u8"报文";
-    int c[] = {80,40,40,40,1000};
+    int c[] = {80,40,40,40,300};
     for(int i = 0; i != 5; i++)
     {
         mtable->setHeaderData(i,Qt::Horizontal,slist.at(i));
@@ -34,6 +37,8 @@ MainWindow::MainWindow(QWidget *parent) :
     {
         ui->tableView->setColumnWidth(i,c[i]);
     }
+    ui->tableView->setEditTriggers(QTableView::NoEditTriggers);
+    ui->tableView->setSelectionBehavior(QTableView::SelectRows);
 }
 
 MainWindow::~MainWindow()
@@ -58,21 +63,23 @@ void MainWindow::on_actionquit_triggered()
 
 void MainWindow::treeAddItem(int type, int id, QStringList& qinfo) //qinfo 数量需要为奇数个,第一个为通道信息,剩下的连续成对
 {
-#define _TREEITEM_NUM_ 1
+#define _TREEITEM_NUM_ 2
     type -= TYPE_TCPS;
     if(type >= _TREEITEM_NUM_) return;
     typedef struct _TREEITEM_{
         char cpic[32];
         char ctype[32];
+        char cinfo[32];
     }TREEITEM;
     TREEITEM treeitem[] ={
-        {":/res/tcps.png", "TCPS"}, // tcp server
-        {":/res/tcpa.png", "TCPA"}  //tcp server accept
+        {":/res/tcps.png", "TCPS", "TCP Server"},  // tcp server
+        {":/res/tcpa.png", "TCPA", "TCP Server Accept"},  //tcp server accept
+        {":/res/tcpc.png", "TCPC", "TCP Client"}, //tcp client
     };
     QStringList sl; //0: 图片信息,1:通道信息,
     sl.append(treeitem[type].cpic);
-    sl.append(u8"通道ID");
-    sl.append (QString::number(id));
+    sl.append(QString(u8"通道ID") + QString::number(id));
+    sl.append(treeitem[type].cinfo);
     sl.append(treeitem[type].ctype);
     sl += qinfo;
     QStandardItem* item = new QStandardItem(QIcon(sl.at(0)), sl.at(1));
@@ -92,8 +99,15 @@ void MainWindow::treeAddItem(int type, int id, QStringList& qinfo) //qinfo 数�
 
 void MainWindow::treeDelItem(int ID)
 {
-    int x = ID;
-    x = 0;
+    QString data(QString(u8"通道ID") + QString::number(ID));
+    for(int i = 0; i != mtree->rowCount(); i++)
+    {
+        if(data.compare(mtree->item(i,0)->text()) == 0)
+        {
+            mtree->removeRow(i);
+            break;
+        }
+    }
 }
 
 void MainWindow::tableAddItem(const QString &channel, const QString &dir, const QString &type, const QString &data)
@@ -106,7 +120,9 @@ void MainWindow::tableAddItem(const QString &channel, const QString &dir, const 
     if(dir.size()) mtable->setItem(rownum,2,new QStandardItem(dir));
     if(type.size()) mtable->setItem(rownum,3,new QStandardItem(type));
     if(data.size()) mtable->setItem(rownum,4,new QStandardItem(data));
+    ui->tableView->verticalScrollBar()->setValue(ui->tableView->verticalScrollBar()->maximum());//滚动到最底位
 }
+
 void MainWindow::tableClear()
 {
     mtable->removeRows(0,mtable->rowCount());//Item的new已经在此delete了,不用手动delete

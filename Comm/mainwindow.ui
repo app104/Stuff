@@ -49,6 +49,9 @@
       <height>291</height>
      </rect>
     </property>
+    <property name="autoFillBackground">
+     <bool>false</bool>
+    </property>
    </widget>
    <widget class="Line" name="line">
     <property name="geometry">

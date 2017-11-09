@@ -45,7 +45,8 @@ public:
     static COMM*      last;       //指向最后一个class Comm
     static QMutex     mutex;      //通讯列表的互斥锁,
     static Qt::HANDLE tid;        //线程ID
-    COMM();
+    COMM(); //
+    COMM(int type,char* lip,int lport,char* rip ,int rport);//tcps tcpc 的构造函数
     void destory(){delete this;} //实现COMM类的自删除，
     int COMM::init_net(int type,char* lip,int lport,char* rip ,int rport);
 private:
@@ -59,9 +60,11 @@ private slots:
     int TCP_read();
     //int TCP_write();
     int TCP_close();
+    int TCP_connect();
 signals:
     void s_tableAddItem(const QString &, const QString &, const QString &, const QString &);
     void s_treeAddItem(int, int, QStringList&);
+    void s_treeDelItem(int);
 };
 
 extern COMM*  Comm;           //通讯列表
