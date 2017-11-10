@@ -78,7 +78,7 @@ void MainWindow::treeAddItem(int type, int id, QStringList& qinfo) //qinfo 数�
     };
     QStringList sl; //0: 图片信息,1:通道信息,
     sl.append(treeitem[type].cpic);
-    sl.append(QString(u8"通道ID") + QString::number(id));
+    sl.append(QString::number(id));
     sl.append(treeitem[type].cinfo);
     sl.append(treeitem[type].ctype);
     sl += qinfo;
@@ -93,16 +93,16 @@ void MainWindow::treeAddItem(int type, int id, QStringList& qinfo) //qinfo 数�
         item->setChild(i++,1,new QStandardItem(*it));
         it ++;
     }
+    item->appendRow(new QStandardItem(QString(u8"关闭")));
     mtree->appendRow(item);
     mtree->setItem(mtree->indexFromItem(item).row(),1,new QStandardItem(sl.at(2)));
 }
 
 void MainWindow::treeDelItem(int ID)
 {
-    QString data(QString(u8"通道ID") + QString::number(ID));
     for(int i = 0; i != mtree->rowCount(); i++)
     {
-        if(data.compare(mtree->item(i,0)->text()) == 0)
+        if(ID == mtree->item(i,0)->text().toInt())
         {
             mtree->removeRow(i);
             break;
@@ -164,4 +164,82 @@ void MainWindow::mouseMoveEvent(QMouseEvent *event)
         ui->tableView->setGeometry(x1+x2, 0, x - x1 -x2, y);
     }
     qDebug() << "COLUMN"  <<COLUMN;
+}
+
+void MainWindow::on_treeView_doubleClicked(const QModelIndex &index)
+{
+    QModelIndex pp = index.parent();
+    int id = pp.data().toInt();
+    qDebug() << u8"p"<< pp.row()<< pp.column() << u8"index"<< index.row()<<index.column()<<index.child(index.row(),1);
+    if(index.column() == 0)
+    {
+        if(index.data().toString().compare(QString(u8"发送")) == 0)
+        {
+            Comm->mutex.lock();
+            int x = Comm->Count;
+            int i = 0; //防止程序跑飞
+            QModelIndex qq = pp.child(index.row(),1);
+            qDebug() << qq.data().toString();
+            for(COMM* p = Comm; p != NULL && i != x; i++, p = p->next)
+            {
+                if(p->NO == id)
+                {
+                    switch(p->TYPE)
+                    {
+                    case TYPE_TCPS:
+                    case TYPE_TCPA:
+                    case TYPE_TCPC:
+                        emit p->s_TCP_write(qq.data().toString());
+                        break;
+                    default:
+                        break;
+                    }
+                    break;
+                }
+            }
+            Comm->mutex.unlock();
+            return;
+        }
+        else if(index.data().toString().compare(QString(u8"关闭")) == 0) //关闭当前的通道
+        {
+            Comm->mutex.lock();
+            for(COMM* p = Comm; p != NULL; p = p->next)
+            {
+                if(p->NO == id)
+                {
+                    switch(p->TYPE)
+                    {
+                    case TYPE_TCPS:
+                    case TYPE_TCPA:
+                    case TYPE_TCPC:
+                        qDebug ()<< QThread::currentThreadId();
+                        Comm->mutex.unlock(); //因为emit可能是类似于中断的机制(emit执行时线程ID是一样的，所以先在这unlock()吧)
+                        emit p->s_TCP_disconnect();
+                        return;
+                    default:
+                        break;
+                    }
+                    break;
+                }
+            }
+            Comm->mutex.unlock();
+        }
+    }
+    else if(index.column() == 1)
+    {
+        if(pp.child(index.row(),0).data().toString().compare(QString(u8"发送")) == 0) //双击修改发送的报文
+        {
+            bool isOK;
+            QString text = QInputDialog::getText(this, u8"输入", u8"请输入报文内容",QLineEdit::Normal,
+                                                               "11 22 33 44 55",
+                                                               &isOK);
+            if(isOK)
+            {
+                QStandardItem* item = mtree->itemFromIndex(index);
+                item->setChild(index.row(),new QStandardItem(text));
+            }
+
+        }
+    }
+
 }

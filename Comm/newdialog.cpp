@@ -75,32 +75,20 @@ void NewDialog::on_pushButtonOK_clicked()//点击触发
         if(lport > 65535) {QMessageBox::warning(this,"Warning","Local Port invalid");return;}
         rport = ui->lineEditRPORT->text().toInt();
         if(rport > 65535) {QMessageBox::warning(this,"Warning","Remote Port invalid");return;}
-        COMM* comm;
-        QString ipinfo;
-        QStringList sl;
+        COMM* comm = NULL;
         if(ui->radioButtonTCPS->isChecked())
         {
             comm = new COMM(TYPE_TCPS,lip,lport,rip,rport);
-            ipinfo = (QString(u8"本地:")+ lip + u8":" +QString::number(lport));
-            sl.append(ipinfo);
-            emit s_treeAddItem(comm->TYPE,comm->NO,sl);
         }
         else if(ui->radioButtonTCPC->isChecked())
         {
             comm = new COMM(TYPE_TCPC,lip,lport,rip,rport);
-            ipinfo = (QString(u8"远端:")+ rip + u8":" +QString::number(rport));
-            sl.append(ipinfo);
-            emit s_treeAddItem(comm->TYPE,comm->NO,sl);
         }
         else if(ui->radioButtonUDP->isChecked())
         {
             comm = new COMM(TYPE_UDP,lip,lport,rip,rport);
-            ipinfo = (QString(u8"本地:")+ lip + u8":" +QString::number(lport) + u8" " + \
-                      QString(u8"远端:")+ rip + u8":" +QString::number(rport));
-            sl.append(ipinfo);
-            emit s_treeAddItem(comm->TYPE,comm->NO,sl);
         }
-        emit s_tableAddItem(QString(u8"通道") + QString::number(comm->NO),NULL,NULL, QString(notice[comm->TYPE - TYPE_TCPS]) + ipinfo);
+        if (comm == NULL) emit s_tableAddItem(NULL,NULL,NULL,QString(u8"内存分配出错"));
     }
     this->destory();
    // accept();

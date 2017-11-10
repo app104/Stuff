@@ -23,7 +23,7 @@ public:
 //    voidmousePressEvent(QMouseEvent*event);//按下
 //    voidmouseMoveEvent(QMouseEvent*event);//按下移动
 //    voidmouseReleaseEvent(QMouseEvent*event);//松开
-//    voidmouseDoubleClickEvent(QMouseEvent*event);//双击
+//    void mouseDoubleClickEvent(QMouseEvent*event);//双击
 //    voidwheelEvent(QWheelEvent*event);//滚轮
 private slots:
     void on_actionnew_triggered();
@@ -32,6 +32,8 @@ private slots:
     void tableAddItem(const QString &channel, const QString &dir, const QString &type, const QString & data);
     void treeAddItem(int type, int id, QStringList& qinfo);
     void treeDelItem(int ID);
+    void on_treeView_doubleClicked(const QModelIndex &index);
+
 signals:
 
 

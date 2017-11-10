@@ -42,7 +42,6 @@ public:
     QTcpServer*       server;
 
     static int        Count;      //通讯序号,只加不减
-    static COMM*      first;      //指向第一个
     static COMM*      last;       //指向最后一个class Comm
     static QMutex     mutex;      //通讯列表的互斥锁,
     COMM(); //
@@ -55,20 +54,28 @@ private:
     ~COMM(); //据说把析构函数设为private，就不能像 COMM x;这样声明了，只能用new
     //virtual void run();
     void init();
-
+    QString* str_ip();
+    QString* str_lip();
+    QString* str_rip();
 private slots:
     int TCPS_new();
     int TCP_read();
-    //int TCP_write();
-    int TCP_close();
+    int TCP_write(const QString& buf);
     int TCP_connect();
+    int TCP_disconnect();
+    void TCP_setconnected();
+    void TCP_setdisconnected();
+    void TCP_error(QAbstractSocket::SocketError socketError);
 signals:
     void s_tableAddItem(const QString &, const QString &, const QString &, const QString &);
-    void s_treeAddItem(int, int, QStringList&);
+    void s_treeAddItem(int, int, QStringList&); //void treeAddItem(int type, int id, QStringList& qinfo);
     void s_treeDelItem(int);
+
+    void s_TCP_disconnect();
+    int  s_TCP_write(const QString&);
 };
 
 
 int is_valid_ip(char* ip);
-
+extern COMM* Comm;
 #endif // COMM_H
