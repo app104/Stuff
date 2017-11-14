@@ -63,7 +63,7 @@ void MainWindow::on_actionquit_triggered()
 
 void MainWindow::treeAddItem(int type, int id, QStringList& qinfo) //qinfo 数量需要为奇数个,第一个为通道信息,剩下的连续成对
 {
-#define _TREEITEM_NUM_ 3
+#define _TREEITEM_NUM_ 4
     type -= TYPE_TCPS;
     if(type >= _TREEITEM_NUM_) return;
     typedef struct _TREEITEM_{
@@ -75,6 +75,7 @@ void MainWindow::treeAddItem(int type, int id, QStringList& qinfo) //qinfo 数�
         {":/res/tcps.png", "TCPS", "TCP Server"},  // tcp server
         {":/res/tcpa.png", "TCPA", "TCP Server Accept"},  //tcp server accept
         {":/res/tcpc.png", "TCPC", "TCP Client"}, //tcp client
+        {":/res/udp.png", "UDP", "UDP"}, //UDP
     };
     QStringList sl; //0: 图片信息,1:通道信息,
     sl.append(treeitem[type].cpic);
@@ -170,7 +171,7 @@ void MainWindow::on_treeView_doubleClicked(const QModelIndex &index)
 {
     QModelIndex pp = index.parent();
     int id = pp.data().toInt();
-    qDebug() << u8"p"<< pp.row()<< pp.column() << u8"index"<< index.row()<<index.column()<<index.child(index.row(),1);
+   // qDebug() << u8"p"<< pp.row()<< pp.column() << u8"index"<< index.row()<<index.column()<<index.child(index.row(),1);
     if(index.column() == 0)
     {
         if(index.data().toString().compare(QString(u8"发送")) == 0)
@@ -179,7 +180,6 @@ void MainWindow::on_treeView_doubleClicked(const QModelIndex &index)
             int x = Comm->Count;
             int i = 0; //防止程序跑飞
             QModelIndex qq = pp.child(index.row(),1);
-            qDebug() << qq.data().toString();
             for(COMM* p = Comm; p != NULL && i != x; i++, p = p->next)
             {
                 if(p->NO == id)
@@ -224,6 +224,55 @@ void MainWindow::on_treeView_doubleClicked(const QModelIndex &index)
             }
             Comm->mutex.unlock();
         }
+        else if(index.data().toString().compare(QString(u8"定时发送停止")) == 0)
+        {
+            QStandardItem* item = mtree->itemFromIndex(index);
+            item->setText(QString(u8"定时发送开始"));
+
+            Comm->mutex.lock();
+            for(COMM* p = Comm; p != NULL; p = p->next)
+            {
+                if(p->NO == id)
+                {
+                    switch(p->TYPE)
+                    {
+                    case TYPE_TCPA:
+                    case TYPE_TCPC:
+                        qDebug()<<u8"定时发送开始";
+                        emit p->s_SETtimer(pp.child(index.row(),1).data().toInt());
+                        break;
+                    default:
+                        break;
+                    }
+                    break;
+                }
+            }
+            Comm->mutex.unlock();
+        }
+        else if(index.data().toString().compare(QString(u8"定时发送开始")) == 0)
+        {
+            QStandardItem* item = mtree->itemFromIndex(index);
+            item->setText(QString(u8"定时发送停止"));
+            Comm->mutex.lock();
+            for(COMM* p = Comm; p != NULL; p = p->next)
+            {
+                if(p->NO == id)
+                {
+                    switch(p->TYPE)
+                    {
+                    case TYPE_TCPA:
+                    case TYPE_TCPC:
+                        qDebug()<<u8"定时发送停止";
+                        emit p->s_STOPtimer();
+                        break;
+                    default:
+                        break;
+                    }
+                    break;
+                }
+            }
+            Comm->mutex.unlock();
+        }
     }
     else if(index.column() == 1)
     {
@@ -236,9 +285,26 @@ void MainWindow::on_treeView_doubleClicked(const QModelIndex &index)
             if(isOK)
             {
                 QStandardItem* item = mtree->itemFromIndex(index);
-                item->setChild(index.row(),new QStandardItem(text));
+                item->setText(text);
             }
-
+        }
+        else if(pp.child(index.row(),0).data().toString().startsWith(QString(u8"定时发送")))
+        {
+            bool isOK;
+            QString text = QInputDialog::getText(this, u8"输入", u8"请输入定时发送的时间间隔(单位:ms)",QLineEdit::Normal,
+                                                               "1000",
+                                                               &isOK);
+            if(isOK)
+            {
+                QStandardItem* item = mtree->itemFromIndex(index);
+                item->setText(text);
+                QModelIndex id_new = pp.child(index.row(),0);
+                if(id_new.data().toString().compare(u8"定时发送开始") == 0)
+                {
+                    on_treeView_doubleClicked(id_new);
+                }
+                on_treeView_doubleClicked(id_new);
+            }
         }
     }
 

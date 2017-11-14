@@ -25,7 +25,7 @@
 
 
 class MainWindow;
-class COMM: public QMainWindow
+class COMM: public QObject
 {
     Q_OBJECT
 
@@ -40,6 +40,8 @@ public:
     COMM*             next;       //指向后一个class Comm
     QTcpSocket*       tcpsock;
     QTcpServer*       server;
+
+    int               TIMEID;  //定时发送的时间ID
 
     static int        Count;      //通讯序号,只加不减
     static COMM*      last;       //指向最后一个class Comm
@@ -57,6 +59,10 @@ private:
     QString* str_ip();
     QString* str_lip();
     QString* str_rip();
+
+    void   set_notice();
+
+    void timerEvent(QTimerEvent *event);
 private slots:
     int TCPS_new();
     int TCP_read();
@@ -66,6 +72,9 @@ private slots:
     void TCP_setconnected();
     void TCP_setdisconnected();
     void TCP_error(QAbstractSocket::SocketError socketError);
+    void SETtimer(int interval);
+    void STOPtimer();
+
 signals:
     void s_tableAddItem(const QString &, const QString &, const QString &, const QString &);
     void s_treeAddItem(int, int, QStringList&); //void treeAddItem(int type, int id, QStringList& qinfo);
@@ -73,6 +82,9 @@ signals:
 
     void s_TCP_disconnect();
     int  s_TCP_write(const QString&);
+
+    void s_SETtimer(int interval);
+    void s_STOPtimer();
 };
 
 
