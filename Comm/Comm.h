@@ -22,72 +22,45 @@
 
 #define TYPE_SERIAL      200 //Serial 串口
 
-
-
-class MainWindow;
-class COMM: public QObject
+typedef struct _SCOMM_
 {
-    Q_OBJECT
-
-public:
     int               NO;         //序号
     int               TYPE;       //通讯类型
     char              LIP[IP_LEN];    //本地端口
     int               LPORT;      //本地端口
     char              RIP[IP_LEN];    //远端端口
     int               RPORT;      //远端端口
-    COMM*             prev;       //指向前一个class Comm
-    COMM*             next;       //指向后一个class Comm
-    QTcpSocket*       tcpsock;
-    QTcpServer*       server;
-
+    void*             sock;       //socket 类的指针
     int               TIMEID;  //定时发送的时间ID
+}SCOMM;
 
-    static int        Count;      //通讯序号,只加不减
-    static COMM*      last;       //指向最后一个class Comm
-    static QMutex     mutex;      //通讯列表的互斥锁,
-    COMM(); //
-    COMM(int type,char* lip,int lport,char* rip ,int rport);//tcps tcpc 的构造函数
-    COMM( QTcpSocket* sock,int type,char* lip,int lport,char* rip ,int rport);
-    void destory(){delete this;} //实现COMM类的自删除，
-    int COMM::init_net(int type,char* lip,int lport,char* rip ,int rport);
+
+class MainWindow;
+class COMM: public QThread
+{
+    Q_OBJECT
+//function
+public:
+    COMM();
+protected:
 private:
     //因为要实现类的自删除
     ~COMM(); //据说把析构函数设为private，就不能像 COMM x;这样声明了，只能用new
-    //virtual void run();
-    void init();
-    QString* str_ip();
-    QString* str_lip();
-    QString* str_rip();
+    void run()  override;
+public:
+    QList<SCOMM> sl;
+protected:
 
-    void   set_notice();
+private:
+    Qt::HANDLE tid;
 
-    void timerEvent(QTimerEvent *event);
+
 private slots:
-    int TCPS_new();
-    int TCP_read();
-    int TCP_write(const QString& buf);
-    int TCP_connect();
-    int TCP_disconnect();
-    void TCP_setconnected();
-    void TCP_setdisconnected();
-    void TCP_error(QAbstractSocket::SocketError socketError);
-    void SETtimer(int interval);
-    void STOPtimer();
 
 signals:
-    void s_tableAddItem(const QString &, const QString &, const QString &, const QString &);
-    void s_treeAddItem(int, int, QStringList&); //void treeAddItem(int type, int id, QStringList& qinfo);
-    void s_treeDelItem(int);
 
-    void s_TCP_disconnect();
-    int  s_TCP_write(const QString&);
-
-    void s_SETtimer(int interval);
-    void s_STOPtimer();
 };
 
 
 int is_valid_ip(char* ip);
-extern COMM* Comm;
 #endif // COMM_H
