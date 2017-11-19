@@ -3,6 +3,13 @@
 
 #include <QDialog>
 #include <QtWidgets>
+#include <QtSerialPort/QtSerialPort>
+#include <QtSerialPort/QSerialPortInfo>
+#include <QString>
+#include <QByteArray>
+#include <QMessageBox>
+#include <QtNetwork>
+
 #include "mainwindow.h"
 #include "Comm.h"
 namespace Ui {

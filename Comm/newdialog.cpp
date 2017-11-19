@@ -2,10 +2,7 @@
 #include "mainwindow.h"
 #include "ui_newdialog.h"
 #include "Comm.h"
-#include <QString>
-#include <QByteArray>
-#include <QMessageBox>
- #include <QtNetwork>
+
 
 #include <string.h>
 
@@ -25,7 +22,16 @@ NewDialog::NewDialog(QWidget *parent) :
             ui->comboBoxLIP->insertItem(0,ip);
         }
     }
-
+    //以下是检测本机有几个可用的串口
+    for(int i = 254; i >= 0; i--)
+    {
+        QString str("COM");
+        str += QString::number(i);
+        if(QSerialPortInfo(str).isValid())
+        {
+            ui->comboBoxCOM_NUM->insertItem(0,str);
+        }
+    }
 }
 
 NewDialog::~NewDialog()

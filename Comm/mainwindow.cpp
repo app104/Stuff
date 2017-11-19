@@ -105,7 +105,7 @@ int MainWindow::treeView_init()
     ui->treeView->setEditTriggers(QTableView::NoEditTriggers);
     ui->treeView->setSelectionBehavior(QTableView::SelectRows);
     ui->treeView->setColumnWidth(0,120);
-    connect(this,SIGNAL(treeItem_add),this, SLOT(s_treeItem_add));
+    connect(this,SIGNAL(s_treeItem_add(int,const QString&,const QStringList&)),this, SLOT(treeItem_add(int,const QString&,const QStringList&)));
 
     //emit treeItem_add(5,u8"测试",QStringList() << u8"aaa"<<u8"bbb"<<u8"ccc"<<u8"ddd");
     return 0;
@@ -125,7 +125,7 @@ int MainWindow::tableView_init()
     }
     ui->tableView->setEditTriggers(QTableView::NoEditTriggers);
     ui->tableView->setSelectionBehavior(QTableView::SelectRows);
-    connect(this,SIGNAL(s_tableItem_add(QStringList)),this,SLOT(tableItem_add(QStringList)));
+    connect(this,SIGNAL(s_tableItem_add(const QStringList&)),this,SLOT(tableItem_add(const QStringList&)));
 //    for(int i = 0; i!=100; i++)
 //    {
 //        emit s_tableItem_add(QStringList()<<u8"程序启动");

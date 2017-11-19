@@ -42,23 +42,39 @@ class COMM: public QThread
 //function
 public:
     COMM();
+    ~COMM();
+    void set_TCPS(char* lip, int lport);
 protected:
 private:
-    //因为要实现类的自删除
-    ~COMM(); //据说把析构函数设为private，就不能像 COMM x;这样声明了，只能用new
+    void init();
     void run()  override;
+    void set_channel(QList::iterator it);
 public:
-    QList<SCOMM> sl;
+
 protected:
 
 private:
-    Qt::HANDLE tid;
-
-
+    static Qt::HANDLE tid;
+    static int tid_run;
+    static QList<SCOMM> sl;
+    static COMM * fcomm; //第一个COMM
+    static QMutex mutex;
+    static int NO;
+public slots:
+    void tid_quit(){tid_run = 0;}
 private slots:
-
+    void new_channel(const SCOMM & s);
+    void TCPS_newConnection();
+    void TCPS_acceptError(QAbstractSocket::SocketError socketError);
 signals:
+    void s_tid_quit();
+    void s_new_channel(const SCOMM & s);
 
+    void s_TCPS_connecting();
+
+    //以下几个信号是来自mainwindow.cpp
+    void s_tableItem_add(const QStringList& ql);
+    void s_treeItem_add(int id, const QString & info,const QStringList& ql);
 };
 
 

@@ -42,7 +42,7 @@ private slots:
 signals:
     void s_tableItem_add(const QStringList& ql);
 
-    void s_treeItem_add(const QStringList& ql);
+    void s_treeItem_add(int id, const QString & info,const QStringList& ql);
     void s_treeItem_del(int id);
 private:
     Ui::MainWindow *ui;

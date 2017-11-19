@@ -4,8 +4,6 @@
 
 int main(int argc, char *argv[])
 {
-    COMM *comm = new COMM;
-    if(comm == NULL) return 1;
     QApplication a(argc, argv);
     MainWindow w;
     w.show();
