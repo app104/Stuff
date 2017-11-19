@@ -162,7 +162,7 @@ int COMM::init_net(int type,char* lip,int lport,char* rip ,int rport)
         else
         {
             connect(server,SIGNAL(newConnection()),this,SLOT(TCPS_new()));
-            connect(this,SIGNAL(s_TCP_disconnect()),this,SLOT(TCP_disconnect()));
+            connect(this,SIGNAL(s_TCP_disconnect()),this,SLOT(TCP_disconnect()),Qt::QueuedConnection);
             QString *str = str_lip();
             emit s_tableAddItem(QString(u8"通道") + QString::number(NO), \
                                 NULL,NULL,QString(u8"新建TCP Server通道")+ *str);
@@ -313,7 +313,7 @@ void COMM::TCP_setconnected()
 {
     connect(tcpsock,SIGNAL(readyRead()), this,SLOT(TCP_read()));
     connect(tcpsock,SIGNAL(disconnected()), this,SLOT(TCP_disconnect()));
-    connect(this,SIGNAL(s_TCP_disconnect()), this,SLOT(TCP_disconnect()));
+    connect(this,SIGNAL(s_TCP_disconnect()), this,SLOT(TCP_disconnect()),Qt::QueuedConnection);
     connect(this,SIGNAL(s_TCP_write(const QString&)), this,SLOT(TCP_write(const QString&)));
     connect(tcpsock,SIGNAL(error(QAbstractSocket::SocketError)),this,SLOT(TCP_error(QAbstractSocket::SocketError)));
 }

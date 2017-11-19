@@ -213,9 +213,9 @@ void MainWindow::on_treeView_doubleClicked(const QModelIndex &index)
                     case TYPE_TCPA:
                     case TYPE_TCPC:
                         qDebug ()<< QThread::currentThreadId();
-                        Comm->mutex.unlock(); //因为emit可能是类似于中断的机制(emit执行时线程ID是一样的，所以先在这unlock()吧)
+                        //Comm->mutex.unlock(); //因为emit可能是类似于中断的机制(emit执行时线程ID是一样的，所以先在这unlock()吧)
                         emit p->s_TCP_disconnect();
-                        return;
+                        break;
                     default:
                         break;
                     }
