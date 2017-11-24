@@ -45,8 +45,9 @@ signals:
     void s_treeItem_add(int id,int type, const QString & info,const QStringList& ql);
     void s_treeItem_del(int id);
 
-private:
+public:
     COMM* comm; //用于关联SIGNAL-SLOT
+private:
     Ui::MainWindow *ui;
     QStandardItemModel* mtree;
     QStandardItemModel* mtable;

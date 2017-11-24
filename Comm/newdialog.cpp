@@ -54,10 +54,10 @@ void NewDialog::on_pushButtonOK_clicked()//点击触发
         if(lport > 65535) {QMessageBox::warning(this,"Warning","Local Port invalid");return;}
         rport = ui->lineEditRPORT->text().toInt();
         if(rport > 65535) {QMessageBox::warning(this,"Warning","Remote Port invalid");return;}
-        COMM co;
+
         if(ui->radioButtonTCPS->isChecked())
         {
-            co.set_TCPS(lip,lport);
+            gui->comm->set_TCPS(lip,lport);
         }
     }
     this->destory();

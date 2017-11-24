@@ -14,6 +14,7 @@ MainWindow::MainWindow(QWidget *parent) :
     QPalette palette;
     palette.setBrush(this->backgroundRole(), Qt::gray);
     this->setPalette(palette);
+    qDebug()<< u8"Thread Start main" <<QThread::currentThread() << QDateTime::currentDateTime().toString("hh:mm:ss.zzz");
     comm = new COMM;
     if(comm == NULL) return;
 
@@ -234,7 +235,7 @@ void MainWindow::on_treeView_doubleClicked(const QModelIndex &index)
             mtree->removeRow(pf.row());
             //以下要删除通道
             qDebug() << u8"关闭通道main" << id<<QThread::currentThreadId();
-            emit comm->s_delete_channel(id);
+            //emit comm->s_delete_channel(id);
         }
         else if(index.data().toString().compare(QString(u8"定时发送停止")) == 0)
         {

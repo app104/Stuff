@@ -48,31 +48,21 @@ public:
 protected:
 private:
     void init();
-    void run()  override;
-    void set_channel(QList<SCOMM>::iterator it);
 public:
 
 protected:
 
 private:
-    static Qt::HANDLE tid;
-    static int tid_run;
-    static QList<SCOMM> sl;
-    static COMM * fcomm; //第一个COMM
-    static QMutex mutex;
-    static int NO;
-public slots:
-    void tid_quit(){tid_run = 0;}
+    QList<SCOMM> sl;
+    QMutex mutex;
+    int NO;
+
 private slots:
-    void new_channel(SCOMM *s);
-    void delete_channel(int id); //通道删除有延时，最多1s
+    void new_channal();
     void TCPS_newConnection();
     void TCPS_acceptError(QAbstractSocket::SocketError socketError);
 signals:
-    void s_tid_quit();
-    void s_new_channel(SCOMM * s);
-    void s_delete_channel(int id);
-    void s_TCPS_connecting();
+    void s_new_channal();
 };
 
 
