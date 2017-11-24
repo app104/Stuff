@@ -41,7 +41,25 @@ NewDialog::~NewDialog()
 
 void NewDialog::on_pushButtonOK_clicked()//点击触发
 {
+    char lip[IP_LEN] ={}, rip[IP_LEN] ={};
+    int lport = 0, rport = 0;
 
+    if(ui->radioButtonTCPS->isChecked() || ui->radioButtonTCPC->isChecked())
+    {
+        strncpy(lip,ui->comboBoxLIP->currentText().toLatin1().data(), IP_LEN-1);
+        if(! is_valid_ip(lip)) {QMessageBox::warning(this,"Warning","Local IP invalid");return;}
+        strncpy(rip,ui->comboBoxRIP->currentText().toLatin1().data(), IP_LEN-1);
+        if(! is_valid_ip(rip)) {QMessageBox::warning(this,"Warning","Remote IP invalid");return;}
+        lport = ui->lineEditLPORT->text().toInt();
+        if(lport > 65535) {QMessageBox::warning(this,"Warning","Local Port invalid");return;}
+        rport = ui->lineEditRPORT->text().toInt();
+        if(rport > 65535) {QMessageBox::warning(this,"Warning","Remote Port invalid");return;}
+        COMM co;
+        if(ui->radioButtonTCPS->isChecked())
+        {
+            co.set_TCPS(lip,lport);
+        }
+    }
     this->destory();
    // accept();
 }

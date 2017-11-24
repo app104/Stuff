@@ -6,6 +6,7 @@ int COMM::tid_run = 1;
 QList<SCOMM> COMM::sl;
 COMM * COMM::fcomm = NULL;
 QMutex COMM::mutex;
+int COMM::NO;
 COMM::COMM()
 {
     init();
@@ -29,48 +30,74 @@ void COMM::init()
     if (fcomm == NULL)
     {
         fcomm = this;
-        connect(this,SIGNAL(s_tableItem_add(const QStringList&)),gui,SLOT(tableItem_add(const QStringList&)));
         connect(this,\
-                SIGNAL(s_treeItem_add(int, const QString &,const QStringList&)),\
-                gui,\
-                SLOT(treeItem_add(int, const QString &,const QStringList&)));
+                SIGNAL(s_delete_channel(int)),\
+                this,
+                SLOT(delete_channel(int)));
     }
     else
     {
-        connect(this,SIGNAL(s_new_channel(SCOMM)),fcomm,SLOT(new_channel(SCOMM)),Qt::QueuedConnection); //用于通知线程,来了一个新的通道
+        connect(this,SIGNAL(s_new_channel(SCOMM*)),fcomm,SLOT(new_channel(SCOMM*)),Qt::QueuedConnection); //用于通知线程,来了一个新的通道
     }
-    if(tid == 0)
+    if(tid == 0)//没有线程在跑
     {
         sl.clear();
         this->start();
         connect(this,SIGNAL(s_tid_quit()),this,SLOT(tid_quit()),Qt::QueuedConnection);
     }
 }
-void COMM::new_channel(const SCOMM & s)
+void COMM::new_channel(SCOMM * s)
 {
+    s->NO = (this->NO)++;
     mutex.lock();
-    sl.push_back(s);
+    sl.push_back(*s);
+    delete s;
     mutex.unlock();
 }
-
+void COMM::delete_channel(int id)
+{
+    qDebug() << u8"关闭通道" << id<<QThread::currentThreadId();
+    mutex.lock();
+    for(QList<SCOMM>::iterator it = sl.begin(); it != sl.end();it++)
+    {
+        it->mark |= 1; //此通道将会在run中被关掉
+    }
+    mutex.unlock();
+}
 void COMM::set_channel(QList<SCOMM>::iterator it) //在独立线程中运行
 {
-#define s_tcps ((QTcpServer*)sock)
-    switch (it->TYPE) {
+    char tname[][32] = {
+        u8"TCP Server",
+        u8"TCPA",
+        u8"TCPC",
+        u8"UDP",
+    };
+    switch (it->TYPE)
+    {
     case TYPE_TCPS:
-        s_tcps = new QTcpServer();
+        #define s_tcps ((QTcpServer*)(it->sock))
+        static QTcpServer* s = new QTcpServer(this);
+        it->sock = s;
         if(true == s_tcps->listen((QHostAddress)(it->LIP),quint16(it->LPORT)))
         {
-            connect(this,SIGNAL(newConnection()),this,SLOT(TCPS_newConnection()),Qt::QueuedConnection);
-            connect(this,\
-                    SIGNAL(acceptError(QAbstractSocket::SocketError socketError)),\
-                    this,\
-                    SLOT(TCPS_acceptError(QAbstractSocket::SocketError socketError)));
+            qDebug()<< u8"线程ID" <<this->currentThreadId();
+            connect(s,\
+                    SIGNAL(newConnection()),\
+                    fcomm,SLOT(TCPS_newConnection()),Qt::DirectConnection);
+            connect(s,\
+                    SIGNAL(acceptError(QAbstractSocket::SocketError)),\
+                    fcomm,\
+                    SLOT(TCPS_acceptError(QAbstractSocket::SocketError)),\
+                    Qt::DirectConnection);
+            QString str = QString(u8"%1:%2").arg(it->LIP).arg(it->LPORT);
+            emit gui->s_tableItem_add(it->NO,0,0,QString(u8"成功，打开本地TCPS服务:") + str);
+            emit gui->s_treeItem_add(it->NO,TYPE_TCPS,QString(tname[0]),\
+                    QStringList(u8"TCPS")<<str);
         }
         else
         {
-            emit s_treeItem_add(it->NO,QString(u8"TCP Server"),);
-            emit s_tableItem_add();
+            emit gui->s_tableItem_add(it->NO,0,0,\
+                                 QString(u8"错误，不能打开本地TCPS服务： %1:%2").arg(it->LIP).arg(it->LPORT));
         }
         break;
     case TYPE_TCPA:
@@ -81,20 +108,33 @@ void COMM::set_channel(QList<SCOMM>::iterator it) //在独立线程中运行
 }
 void COMM::set_TCPS(char* lip, int lport)
 {
-    SCOMM tcps = {};
-    tcps.TYPE = TYPE_TCPS;
-    strncmp( tcps.LIP,lip,IP_LEN);
-    tcps.LPORT = lport;
+    SCOMM* tcps = new SCOMM;
+    memset(tcps,0,sizeof(SCOMM));
+    tcps->TYPE = TYPE_TCPS;
+    strncpy( tcps->LIP,lip,IP_LEN);
+    tcps->LPORT = lport;
     emit s_new_channel(tcps);
 }
 void COMM::TCPS_newConnection()
 {
-    qDebug << "新的TCPS连接";
+    qDebug() << "新的TCPS连接";
+    emit gui->s_tableItem_add(this->NO,0,0,QString(u8"TCPA"));
 }
-
+void COMM::TCPS_acceptError(QAbstractSocket::SocketError socketError)
+{
+    qDebug() << "新的TCPS连接错误" <<socketError;
+}
 void COMM::run()
 {
+    if(tid)
+    {
+        qDebug() << u8"已经有线程在运行了";
+        this->exit();
+    }
+    tid = this->currentThreadId();
+    qDebug()<< u8"线程开始" <<this->currentThreadId() << QDateTime::currentDateTime().toString("hh:mm:ss.zzz") << this->tid;
     while (tid_run) {
+        qDebug()<< u8"在线程中" <<this->currentThreadId() << QDateTime::currentDateTime().toString("hh:mm:ss.zzz");
         mutex.lock();
         //检查有没有新的通道,或没有用的通道
         for(QList<SCOMM>::iterator i = sl.begin(); i != sl.end(); i++)
@@ -102,12 +142,28 @@ void COMM::run()
             if(i->sock == NULL)//新通道
             {
                 set_channel(i);
+                continue;
+            }
+            else if(i->mark & 0x01) //关闭通道
+            {
+                switch (i->TYPE)
+                {
+                case TYPE_TCPS:
+                    ((QTcpServer*)(i->sock))->close();
+                    emit gui->s_tableItem_add(i->NO,0,0,QString(u8"关闭通道%1 %2:%3").arg(i->NO).arg(i->LIP).arg(i->LPORT));
+                    break;
+                default:
+                    continue;//继续for循环
+                }
+                sl.erase(i); //此句和下一句一起用，不可删
+                break;
             }
         }
         mutex.unlock();
         this->sleep(1);
-        qDebug()<< u8"在线程中" <<this->currentThreadId() << QDateTime::currentDateTime().toString("hh:mm:ss.zzz");
+
     }
+
 }
 
 int is_valid_ip(char* ip)

@@ -32,6 +32,7 @@ typedef struct _SCOMM_
     int               RPORT;      //远端端口
     void*             sock;       //socket 类的指针
     int               TIMEID;  //定时发送的时间ID
+    int               mark; //此值为1时表示要删除此通道
 }SCOMM;
 
 
@@ -48,7 +49,7 @@ protected:
 private:
     void init();
     void run()  override;
-    void set_channel(QList::iterator it);
+    void set_channel(QList<SCOMM>::iterator it);
 public:
 
 protected:
@@ -63,18 +64,15 @@ private:
 public slots:
     void tid_quit(){tid_run = 0;}
 private slots:
-    void new_channel(const SCOMM & s);
+    void new_channel(SCOMM *s);
+    void delete_channel(int id); //通道删除有延时，最多1s
     void TCPS_newConnection();
     void TCPS_acceptError(QAbstractSocket::SocketError socketError);
 signals:
     void s_tid_quit();
-    void s_new_channel(const SCOMM & s);
-
+    void s_new_channel(SCOMM * s);
+    void s_delete_channel(int id);
     void s_TCPS_connecting();
-
-    //以下几个信号是来自mainwindow.cpp
-    void s_tableItem_add(const QStringList& ql);
-    void s_treeItem_add(int id, const QString & info,const QStringList& ql);
 };
 
 

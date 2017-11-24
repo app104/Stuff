@@ -14,6 +14,9 @@ MainWindow::MainWindow(QWidget *parent) :
     QPalette palette;
     palette.setBrush(this->backgroundRole(), Qt::gray);
     this->setPalette(palette);
+    comm = new COMM;
+    if(comm == NULL) return;
+
     treeView_init();
     tableView_init();
 }
@@ -105,7 +108,7 @@ int MainWindow::treeView_init()
     ui->treeView->setEditTriggers(QTableView::NoEditTriggers);
     ui->treeView->setSelectionBehavior(QTableView::SelectRows);
     ui->treeView->setColumnWidth(0,120);
-    connect(this,SIGNAL(s_treeItem_add(int,const QString&,const QStringList&)),this, SLOT(treeItem_add(int,const QString&,const QStringList&)));
+    connect(this,SIGNAL(s_treeItem_add(int,int,const QString&,const QStringList&)),this, SLOT(treeItem_add(int,int,const QString&,const QStringList&)));
 
     //emit treeItem_add(5,u8"测试",QStringList() << u8"aaa"<<u8"bbb"<<u8"ccc"<<u8"ddd");
     return 0;
@@ -125,7 +128,7 @@ int MainWindow::tableView_init()
     }
     ui->tableView->setEditTriggers(QTableView::NoEditTriggers);
     ui->tableView->setSelectionBehavior(QTableView::SelectRows);
-    connect(this,SIGNAL(s_tableItem_add(const QStringList&)),this,SLOT(tableItem_add(const QStringList&)));
+    connect(this,SIGNAL(s_tableItem_add(int ,int ,int , QString)),this,SLOT(tableItem_add(int ,int ,int , QString )));
 //    for(int i = 0; i!=100; i++)
 //    {
 //        emit s_tableItem_add(QStringList()<<u8"程序启动");
@@ -137,15 +140,25 @@ int MainWindow::tableView_init()
     connect(ui->tableView,SIGNAL(customContextMenuRequested(QPoint)),this,SLOT(tableView_rightMenu(QPoint)));
     return 0;
 }
-void MainWindow::tableItem_add(const QStringList& ql) //QStringList的顺序为报文-通道-方向-类型
+void MainWindow::tableItem_add(int id,int dir,int type, const QString& data)
 {
     int row = mtable->rowCount();
     mtable->setItem(row,0,new QStandardItem(QDateTime::currentDateTime().toString("hh:mm:ss.zzz")));
-    mtable->setItem(row,4,new QStandardItem(ql.at(0)));
-    for(int i = 1; i < (ql.size() < 4 ? ql.size() : 4); i++)
-    {
-        mtable->setItem(row,i,new QStandardItem(ql.at(i)));
-    }
+    mtable->setItem(row,1,new QStandardItem(QString::number(id)));
+    char dir_str[][16] = {
+        u8"发送",
+        u8"接收",
+    };
+    if(dir != 0 && dir <=2)
+        mtable->setItem(row,2,new QStandardItem(QString(dir_str[dir - 1])));
+    char type_str[][16] = {
+        u8"报文",
+        u8"信息",
+    };
+    if(type != 0 && dir <=2)
+        mtable->setItem(row,3,new QStandardItem(QString(type_str[type - 1])));
+    if(! data.isEmpty())
+        mtable->setItem(row,4,new QStandardItem(data));
     //ui->tableView->verticalScrollBar()->setValue(ui->tableView->verticalScrollBar()->maximum());//滚动到最底位
     ui->tableView->scrollToBottom();
 }
@@ -184,7 +197,7 @@ void MainWindow::tableView_rightMenu(const QPoint &pos)
     }
 }
 
-void MainWindow::treeItem_add(int id, const QString & info,const QStringList& ql)
+void MainWindow::treeItem_add(int id, int type, const QString & info,const QStringList& ql)
 {
     QStandardItem* item = new QStandardItem(QString::number(id));
     int row = 0;
@@ -194,10 +207,14 @@ void MainWindow::treeItem_add(int id, const QString & info,const QStringList& ql
         if(i >= ql.size()) break;
         item->setChild(row,1,new QStandardItem(ql.at(i++)));
     }
-    item->appendRow(new QStandardItem(u8"发送"));
-    item->setChild(row++,1,new QStandardItem(QString(u8"11 22 33 44")));
-    item->appendRow(new QStandardItem(QString(u8"定时发送停止")));
-    item->setChild(row++,1,new QStandardItem(QString(u8"1000")));
+    if(type == TYPE_TCPA || type == TYPE_TCPC || type == TYPE_UDP)
+    {
+        item->appendRow(new QStandardItem(u8"发送"));
+        item->setChild(row++,1,new QStandardItem(QString(u8"11 22 33 44")));
+        item->appendRow(new QStandardItem(QString(u8"定时发送停止")));
+        item->setChild(row++,1,new QStandardItem(QString(u8"1000")));
+    }
+
     item->appendRow(new QStandardItem(QString(u8"关闭")));
     mtree->appendRow(item);
     mtree->setItem(0,1,new QStandardItem(info));
@@ -216,6 +233,8 @@ void MainWindow::on_treeView_doubleClicked(const QModelIndex &index)
         {
             mtree->removeRow(pf.row());
             //以下要删除通道
+            qDebug() << u8"关闭通道main" << id<<QThread::currentThreadId();
+            emit comm->s_delete_channel(id);
         }
         else if(index.data().toString().compare(QString(u8"定时发送停止")) == 0)
         {

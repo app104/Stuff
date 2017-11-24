@@ -32,19 +32,21 @@ private slots:
     void on_actionquit_triggered();
     void on_tabWidget_currentChanged(int index);
 
-    void tableItem_add(const QStringList& ql); //QStringList的顺序为报文-通道-方向-类型
+    void tableItem_add(int id,int dir,int type, const QString& data);
     void tableItem_del();
     void tableView_rightMenu(const QPoint &pos);  //右键信号槽函数
 
-    void treeItem_add(int id, const QString & info,const QStringList& ql);
+    void treeItem_add(int id, int type, const QString & info, const QStringList& ql);
     void on_treeView_doubleClicked(const QModelIndex &index);//treeView有双击事件
 
 signals:
-    void s_tableItem_add(const QStringList& ql);
+    void s_tableItem_add(int id,int dir,int type, const QString& data);
 
-    void s_treeItem_add(int id, const QString & info,const QStringList& ql);
+    void s_treeItem_add(int id,int type, const QString & info,const QStringList& ql);
     void s_treeItem_del(int id);
+
 private:
+    COMM* comm; //用于关联SIGNAL-SLOT
     Ui::MainWindow *ui;
     QStandardItemModel* mtree;
     QStandardItemModel* mtable;
