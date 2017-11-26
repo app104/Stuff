@@ -75,7 +75,7 @@ void MainWindow::mouseMoveEvent(QMouseEvent *event)
     {
         if(ui->tabWidget->currentIndex() == 0 ) // tab标签是: "通讯基本测试"
         {
-            if(xMouse < xtab ) COLUMN_0 = double(xMouse) / double(xtab); else return;
+            if(double(xMouse) < double(xtab)*0.95 ) COLUMN_0 = double(xMouse) / double(xtab); else return;
             int xval = xtab *COLUMN_0;
             int yval = ytab - TAB_HIGH;
             ui->treeView->setGeometry(0,0,xval,yval);
@@ -218,7 +218,7 @@ void MainWindow::treeItem_add(int id, int type, const QString & info,const QStri
 
     item->appendRow(new QStandardItem(QString(u8"关闭")));
     mtree->appendRow(item);
-    mtree->setItem(0,1,new QStandardItem(info));
+    mtree->setItem(mtree->rowCount()-1,1,new QStandardItem(info));
 }
 
 
@@ -227,15 +227,18 @@ void MainWindow::on_treeView_doubleClicked(const QModelIndex &index)
     QModelIndex pf = index.parent();
     if(! pf.isValid() ) return;
     int id = pf.data(0).toInt();
-    qDebug()<< u8"on_treeView_doubleClicked" << id;
     if(index.column() == 0)
     {
         if(index.data().toString().compare(QString(u8"关闭")) == 0)
         {
             mtree->removeRow(pf.row());
-            //以下要删除通道
-            qDebug() << u8"关闭通道main" << id<<QThread::currentThreadId();
-            //emit comm->s_delete_channel(id);
+            emit comm->s_delete_channel(id);//删除通道
+        }
+        else if(index.data().toString().compare(QString(u8"发送")) == 0)
+        {
+            QString buf = pf.child(index.row(),1).data().toString();
+            emit comm->s_TCP_Write(id,buf);
+            emit s_tableItem_add(id,1,1,buf);
         }
         else if(index.data().toString().compare(QString(u8"定时发送停止")) == 0)
         {

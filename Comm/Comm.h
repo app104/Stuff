@@ -32,7 +32,6 @@ typedef struct _SCOMM_
     int               RPORT;      //远端端口
     void*             sock;       //socket 类的指针
     int               TIMEID;  //定时发送的时间ID
-    int               mark; //此值为1时表示要删除此通道
 }SCOMM;
 
 
@@ -59,10 +58,16 @@ private:
 
 private slots:
     void new_channal();
+    void delete_channel(int id);
     void TCPS_newConnection();
     void TCPS_acceptError(QAbstractSocket::SocketError socketError);
+    void TCP_disconnected();
+    void TCP_Read();
+    void TCP_Write(int id,const QString& buf);
 signals:
     void s_new_channal();
+    void s_delete_channel(int id);
+    void s_TCP_Write(int id,const QString& buf);
 };
 
 
