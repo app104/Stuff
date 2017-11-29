@@ -238,19 +238,21 @@ void MainWindow::on_treeView_doubleClicked(const QModelIndex &index)
         {
             QString buf = pf.child(index.row(),1).data().toString();
             emit comm->s_TCP_Write(id,buf);
-            emit s_tableItem_add(id,1,1,buf);
+
         }
         else if(index.data().toString().compare(QString(u8"定时发送停止")) == 0)
         {
             QStandardItem* item = mtree->itemFromIndex(index);
             item->setText(QString(u8"定时发送开始"));
             //以下开始定时发送
+            emit comm->new_timer(id,pf.child(index.row(),1).data().toInt());
         }
         else if(index.data().toString().compare(QString(u8"定时发送开始")) == 0)
         {
             QStandardItem* item = mtree->itemFromIndex(index);
             item->setText(QString(u8"定时发送停止"));
             //以下停止定时发送
+            emit comm->delete_timer(id);
         }
     }
     else if(index.column() == 1)

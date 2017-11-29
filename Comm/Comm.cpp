@@ -16,6 +16,50 @@ void COMM::init()
     sl.clear();
     connect(this,SIGNAL(s_new_channal()),this,SLOT(new_channal()),Qt::QueuedConnection);
     connect(this,SIGNAL(s_delete_channel(int)),this,SLOT(delete_channel(int)),Qt::QueuedConnection);
+    connect(this,SIGNAL(s_new_timer(int,int)),this,SLOT(new_timer(int,int)),Qt::QueuedConnection);
+    connect(this,SIGNAL(s_delete_timer(int)),this,SLOT(delete_timer(int)),Qt::QueuedConnection);
+}
+void COMM::timerEvent(QTimerEvent * event)
+{
+    qDebug()<<"timerEvent";
+    //mutex.lock();
+    for(QList<SCOMM>::iterator it = sl.begin();it!=sl.end();it++)
+    {
+        if(event->timerId() == it->TIMEID)
+        {
+            if(it->TYPE == TYPE_TCPA || it->TYPE == TYPE_TCPC)
+            {
+                emit TCP_Write(it->NO,QString(u8"22 33 44 55 66"));
+            }
+        }
+    }
+   // mutex.unlock();
+}
+
+void COMM::new_timer(int id, int interval)
+{
+    mutex.lock();
+    for(QList<SCOMM>::iterator it = sl.begin();it!=sl.end();it++)
+    {
+        if(id == it->NO && it->TIMEID == 0)
+        {
+            it->TIMEID = startTimer(interval);
+        }
+    }
+    mutex.unlock();
+}
+void COMM::delete_timer(int id)
+{
+    mutex.lock();
+    for(QList<SCOMM>::iterator it = sl.begin();it!=sl.end();it++)
+    {
+        if(id == it->NO && it->TIMEID != 0)
+        {
+            killTimer(id);
+            it->TIMEID = 0;
+        }
+    }
+    mutex.unlock();
 }
 
 void COMM::new_channal()
@@ -35,7 +79,7 @@ void COMM::new_channal()
                     connect(tcps_sock,\
                             SIGNAL(acceptError(QAbstractSocket::SocketError)),\
                             this,\
-                            SLOT(TCPS_acceptError(QAbstractSocket::SocketError)),Qt::QueuedConnection);
+                            SLOT(TCPS_acceptError(QAbstractSocket::SocketError)));
                     QString str = QString(u8"本地%1:%2").arg(QString(it->LIP)).arg(it->LPORT);
                     emit gui->s_tableItem_add(it->NO,0,0,QString(u8"Success:打开TCPS服务,%1").arg(str));
                     emit gui->s_treeItem_add(it->NO,TYPE_TCPS, QString("TCP Server"),QStringList("TCPS")<<str);
@@ -65,6 +109,7 @@ void COMM::delete_channel(int id)
     {
         if(it->NO == id)
         {
+            if(it->TIMEID) killTimer(it->TIMEID);
             switch (it->TYPE) {
             case TYPE_TCPS:
 #define tcps_sock ((QTcpServer*)(it->sock))
@@ -170,6 +215,7 @@ void COMM::TCP_Write(int id,const QString& buf)
         }
     }
     mutex.unlock();
+    emit gui->s_tableItem_add(id,1,1,buf);
 }
 void COMM::TCP_disconnected()
 {

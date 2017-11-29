@@ -34,7 +34,6 @@ typedef struct _SCOMM_
     int               TIMEID;  //定时发送的时间ID
 }SCOMM;
 
-
 class MainWindow;
 class COMM: public QThread
 {
@@ -47,6 +46,7 @@ public:
 protected:
 private:
     void init();
+    void timerEvent(QTimerEvent * event);
 public:
 
 protected:
@@ -56,7 +56,7 @@ private:
     QMutex mutex;
     int NO;
 
-private slots:
+public slots:
     void new_channal();
     void delete_channel(int id);
     void TCPS_newConnection();
@@ -64,10 +64,14 @@ private slots:
     void TCP_disconnected();
     void TCP_Read();
     void TCP_Write(int id,const QString& buf);
+    void new_timer(int id, int interval);
+    void delete_timer(int id);
 signals:
     void s_new_channal();
     void s_delete_channel(int id);
     void s_TCP_Write(int id,const QString& buf);
+    void s_new_timer(int id,int interval);
+    void s_delete_timer(int id);
 };
 
 
