@@ -2,10 +2,7 @@
 #include "mainwindow.h"
 #include "ui_newdialog.h"
 #include "Comm.h"
-#include <QString>
-#include <QByteArray>
-#include <QMessageBox>
- #include <QtNetwork>
+
 
 #include <string.h>
 
@@ -14,16 +11,7 @@ NewDialog::NewDialog(QWidget *parent) :
     ui(new Ui::NewDialog)
 {
     ui->setupUi(this);
-    MainWindow* pParent = (MainWindow*)parentWidget();
-    connect(this,\
-            SIGNAL(s_tableAddItem(QString,QString,QString,QString)),\
-            pParent,\
-            SLOT(tableAddItem(QString,QString,QString,QString)));
-    connect(this,\
-            SIGNAL(s_treeAddItem(int, int, QStringList&)),\
-            pParent,\
-            SLOT(treeAddItem(int, int, QStringList&)));
-
+   // MainWindow* pParent = (MainWindow*)parentWidget();
     //以下为获取所有本地网卡的IPv4地址, 并加到本地列表中
     foreach(QHostAddress addr, QNetworkInterface::allAddresses())
     {
@@ -34,38 +22,29 @@ NewDialog::NewDialog(QWidget *parent) :
             ui->comboBoxLIP->insertItem(0,ip);
         }
     }
-
+    //以下是检测本机有几个可用的串口
+    for(int i = 254; i >= 0; i--)
+    {
+        QString str("COM");
+        str += QString::number(i);
+        if(QSerialPortInfo(str).isValid())
+        {
+            ui->comboBoxCOM_NUM->insertItem(0,str);
+        }
+    }
 }
 
 NewDialog::~NewDialog()
 {
-    qDebug() << "~NewDialog( )";
-    MainWindow* pParent = (MainWindow*)parentWidget();
-    disconnect(this,\
-            SIGNAL(s_tableAddItem(QString,QString,QString,QString)),\
-            pParent,\
-            SLOT(tableAddItem(QString,QString,QString,QString)));
-    disconnect(this,\
-               SIGNAL(s_treeAddItem(int, int, QStringList&)),\
-               pParent,\
-               SLOT(treeAddItem(int, int, QStringList&)));
     delete ui;
 }
 
 void NewDialog::on_pushButtonOK_clicked()//点击触发
 {
-    char notice[][64]=
-    {
-        u8"新建TCP Server通道 ",
-        u8"新建TCP Server Accept通道 ",
-        u8"新建TCP Client通道 ",
-        u8"新建UDP通道 ",
-        u8"新建xxx通道 ",
-    };
     char lip[IP_LEN] ={}, rip[IP_LEN] ={};
     int lport = 0, rport = 0;
 
-    if(ui->radioButtonTCPS->isChecked() || ui->radioButtonTCPC->isChecked())
+    if(ui->radioButtonTCPS->isChecked() || ui->radioButtonTCPC->isChecked() || ui->radioButtonUDP->isChecked())
     {
         strncpy(lip,ui->comboBoxLIP->currentText().toLatin1().data(), IP_LEN-1);
         if(! is_valid_ip(lip)) {QMessageBox::warning(this,"Warning","Local IP invalid");return;}
@@ -75,20 +54,52 @@ void NewDialog::on_pushButtonOK_clicked()//点击触发
         if(lport > 65535) {QMessageBox::warning(this,"Warning","Local Port invalid");return;}
         rport = ui->lineEditRPORT->text().toInt();
         if(rport > 65535) {QMessageBox::warning(this,"Warning","Remote Port invalid");return;}
-        COMM* comm = NULL;
+
         if(ui->radioButtonTCPS->isChecked())
         {
-            comm = new COMM(TYPE_TCPS,lip,lport,rip,rport);
+            COMM* comm = new COMM;
+            if(comm != NULL)
+            {
+                comm->set_TCPS(lip,lport);
+                gui->qcomm.append(comm);
+            }
         }
         else if(ui->radioButtonTCPC->isChecked())
         {
-            comm = new COMM(TYPE_TCPC,lip,lport,rip,rport);
+            COMM* comm = new COMM;
+            if(comm != NULL)
+            {
+                comm->set_TCPC(rip,rport);
+                gui->qcomm.append(comm);
+            }
         }
         else if(ui->radioButtonUDP->isChecked())
         {
-            comm = new COMM(TYPE_UDP,lip,lport,rip,rport);
+            COMM* comm = new COMM;
+            if(comm != NULL)
+            {
+                comm->set_UDP(lip,lport,rip,rport);
+                gui->qcomm.append(comm);
+            }
         }
-        if (comm == NULL) emit s_tableAddItem(NULL,NULL,NULL,QString(u8"内存分配出错"));
+    }
+    else if(ui->radioButtonMulticast->isChecked())
+    {
+        if(ui->radioButtonMulticastS->isChecked()) //组播源
+        {
+            COMM* comm = new COMM;
+            if(comm != NULL)
+            {
+                comm->set_MultS(lip,lport,rip,rport);
+                gui->qcomm.append(comm);
+            }
+        }else if(ui->radioButtonMulticastC->isChecked())//加入组播
+        {
+            COMM* comm = new COMM;
+            comm->set_MultC(lip,lport,rip,rport);
+            gui->qcomm.append(comm);
+        }
+
     }
     this->destory();
    // accept();

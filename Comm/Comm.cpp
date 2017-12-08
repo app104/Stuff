@@ -1,373 +1,337 @@
 ﻿#include "Comm.h"
 #include "mainwindow.h"
 #include <string.h>
-
-#include <QMessageBox>
-#include <QMainWindow>
-COMM* Comm = NULL;
-int COMM::Count = 0;
-COMM* COMM::last  = NULL;
-QMutex COMM::mutex;
-
+int COMM::SEQ = 0;
 COMM::COMM()
 {
     init();
 }
-COMM::COMM(int type,char* lip,int lport,char* rip ,int rport)
-{
-    init();
-    init_net(type,lip,lport,rip ,rport);
-}
-COMM::COMM( QTcpSocket* sock,int type,char* lip,int lport,char* rip ,int rport)
-{
-    init();
-    tcpsock = sock;
-    init_net(type, lip, lport, rip , rport);
-    if (type ==TYPE_TCPA &&sock != NULL)
-    {
-        TCP_connect();
-    }
-}
+
 COMM::~COMM()
 {
-    disconnect(this,\
-            SIGNAL(s_tableAddItem(QString,QString,QString,QString)),\
-            gui,\
-            SLOT(tableAddItem(QString,QString,QString,QString)));
-    disconnect(this,\
-            SIGNAL(s_treeAddItem(int, int, QStringList&)),\
-            gui,\
-            SLOT(treeAddItem(int, int, QStringList&)));
-    disconnect(this,\
-            SIGNAL(s_treeDelItem(int)),\
-            gui,\
-            SLOT(treeDelItem(int)));
-    disconnect(this,\
-            SIGNAL(s_SETtimer(int)),\
-            this,\
-            SLOT(SETtimer(int)));
-    disconnect(this,\
-            SIGNAL(s_STOPtimer()),\
-            this,\
-            SLOT(STOPtimer()));
-
-    if (TIMEID) killTimer(TIMEID);
-    qDebug ()<< QThread::currentThreadId();
-    mutex.lock();
-    if( Comm == last) //序列中只有一个元素
+    if(sock)
     {
-        Comm = NULL;
-        last = NULL;
+        switch (TYPE)
+        {
+        case TYPE_TCPS:
+            ((QTcpServer*)sock)->close();
+            emit gui->s_tableItem_add(NO,0,0,QString(u8"NOTICE:关闭TCPS L%1:%2").arg(LIP).arg(LPORT));
+            break;
+        case TYPE_TCPA:
+        case TYPE_TCPC:
+            ((QTcpSocket*)(sock))->close();
+        default:
+            break;
+        }
+        sock = 0;
     }
-   else
+    if(TIMEID)
     {
-        if (last == this ) //在序列尾部
-        {
-            last = prev;
-            prev->next = NULL;
-        }
-        else
-        {
-            if(Comm == this) //序列中第一个
-            {
-                Comm = next;
-                next->prev = NULL;
-
-            }
-            else
-            {
-                prev->next = next;
-                next->prev = prev;
-            }
-
-        }
+        killTimer(TIMEID);
+        TIMEID = 0;
     }
-
-    mutex.unlock();
 }
 void COMM::init()
 {
+    sock = 0;
     TIMEID = 0;
-    //因为子线程不能直接写主窗口，所以只能通过SIGNAL-SLOT来改变主窗口
-    connect(this,\
-            SIGNAL(s_tableAddItem(QString,QString,QString,QString)),\
-            gui,\
-            SLOT(tableAddItem(QString,QString,QString,QString)));
-    connect(this,\
-            SIGNAL(s_treeAddItem(int, int, QStringList&)),\
-            gui,\
-            SLOT(treeAddItem(int, int, QStringList&)));
-    connect(this,\
-            SIGNAL(s_treeDelItem(int)),\
-            gui,\
-            SLOT(treeDelItem(int)));
-    connect(this,\
-            SIGNAL(s_SETtimer(int)),\
-            this,\
-            SLOT(SETtimer(int)));
-    connect(this,\
-            SIGNAL(s_STOPtimer()),\
-            this,\
-            SLOT(STOPtimer()));
-    if(Comm == NULL)
+    buf_size = 0;
+}
+void COMM::timerEvent(QTimerEvent * event)
+{
+    qDebug()<< "timerEvent" << event;
+    WriteData(buf);
+}
+
+void COMM::SetTimer(int interval)
+{
+    if(TIMEID == 0) TIMEID = startTimer(interval);
+
+}
+void COMM::StopTimer()
+{
+    if(TIMEID)
     {
-        Comm = this;
-        prev = NULL;
-        next = NULL;
+        killTimer(TIMEID);
+        TIMEID = 0;
+    }
+}
+
+
+void COMM::set_TCPS(char* lip, int lport)
+{
+    NO = SEQ ++;
+    TYPE = TYPE_TCPS;
+    strncpy(LIP,lip,IP_LEN);
+    LPORT = lport;
+    sock = new QTcpServer(this);
+    QString str = QString(u8"L:%1:%2").arg(LIP).arg(LPORT);
+    if(((QTcpServer*)sock)->listen(QHostAddress(LIP),quint16(LPORT)) == false)
+    {
+        gui->s_tableItem_add(NO, 0, 0, QString(u8"ERROR:Can\'t open TCP Server %1").arg(str));
+        return;
     }
     else
     {
-        last->next = this;
-        this->prev = last;
-        this->next = NULL;
+        gui->s_tableItem_add(NO, 0, 0, QString(u8"NOTICE:Open TCP Server %1").arg(str));
+        gui->s_treeItem_add(NO,TYPE_TCPS,QString(u8"TCP Server"),QStringList()<<"TCPS"<< str);
+        connect(((QTcpServer*)sock),SIGNAL(newConnection()),this,SLOT(TCPS_newConnection()),Qt::AutoConnection);
+        connect(((QTcpServer*)sock),\
+                SIGNAL(acceptError(QAbstractSocket::SocketError)),\
+                this,\
+                SLOT(TCPS_acceptError(QAbstractSocket::SocketError)),Qt::AutoConnection);
     }
-    last = this;
-    NO = Count ++;
 }
 
-int COMM::init_net(int type,char* lip,int lport,char* rip ,int rport)
+
+void COMM::TCPS_newConnection()
 {
-    mutex.lock();
-    for (COMM* p = Comm; p != NULL; p = p->next )
+        qDebug()<< "TCPS_newConnection";
+
+        COMM* comm = new COMM;
+        comm->sock= ((QTcpServer*)sock)->nextPendingConnection();
+        comm->NO = SEQ++;
+        comm->TYPE = TYPE_TCPA;
+        strncpy(comm->LIP,((QTcpSocket*)(comm->sock))->localAddress().toString().toLocal8Bit().data(),IP_LEN);
+        comm->LPORT = ((QTcpSocket*)(comm->sock))->localPort();
+        strncpy(comm->RIP,((QTcpSocket*)(comm->sock))->peerAddress().toString().toLocal8Bit().data(),IP_LEN);
+        comm->RPORT = ((QTcpSocket*)(comm->sock))->peerPort();
+        gui->qcomm.append(comm); // 不考虑数据同步问题
+
+        connect(((QTcpSocket*)(comm->sock)),\
+                SIGNAL(stateChanged(QAbstractSocket::SocketState)),\
+                comm,\
+                SLOT(TCP_stateChanged(QAbstractSocket::SocketState)));
+        QString ips = QString("L:%1:%2,R:%3:%4").arg(comm->LIP).arg(comm->LPORT).arg(comm->RIP).arg(comm->RPORT);
+        connect(((QTcpSocket*)(comm->sock)),SIGNAL(readyRead()),comm,SLOT(ReadData()));
+        emit gui->s_tableItem_add(comm->NO,0,0,QString(u8"NOTICE:TCPS L:%1:%2接收到新连接 %3").arg(comm->LIP).arg(comm->LPORT).arg(ips));
+        emit gui->s_treeItem_add(comm->NO,TYPE_TCPA,QString("TCP Accepted"),QStringList("TCPA")<<ips);
+}
+void COMM::set_TCPC(char* rip, int rport)
+{
+    TYPE = TYPE_TCPC;
+    NO = SEQ++;
+    strncpy(RIP,rip,IP_LEN);
+    RPORT = rport;
+    sock = new QTcpSocket(this);
+    connect(((QTcpSocket*)sock),\
+            SIGNAL(stateChanged(QAbstractSocket::SocketState)),\
+            this,\
+            SLOT(TCP_stateChanged(QAbstractSocket::SocketState)));
+    ((QTcpSocket*)sock)->connectToHost(QHostAddress(rip),quint16(rport));
+
+}
+
+void COMM::set_UDP(char *lip, int lport, char* rip, int rport)
+{
+    sock = new QUdpSocket(this);
+    NO = SEQ++;
+    TYPE = TYPE_UDP;
+    strncpy(LIP,lip,IP_LEN);
+    LPORT = lport;
+    strncpy(RIP,rip,IP_LEN);
+    RPORT = rport;
+    if(lport)  // 如果本地端口不是0,那么就要bind本地端口
     {
-        switch (type)
+        ((QUdpSocket*)sock)->bind(quint16(lport),QUdpSocket::ReuseAddressHint);
+        connect(((QUdpSocket*)sock), SIGNAL(readyRead()),
+                      this, SLOT(ReadData()));
+    }
+    QString sip = QString("R:%1:%2,L:%3:%4").arg(LIP).arg(LPORT).arg(RIP).arg(RPORT);
+    emit gui->s_treeItem_add(NO,TYPE_UDP,QString("UDP"),QStringList("UDP")<<sip);
+    emit gui->s_tableItem_add(NO,0,0,QString(u8"NOTICE:UDP创建成功:%1").arg(sip));
+}
+void COMM::set_MultS(char* lip, int lport,char* mip, int mport)
+{
+    qDebug()<<lip<<lport<<mip<<mport;
+    sock = new QUdpSocket(this);
+    NO = SEQ++;
+    TYPE = TYPE_UDP;
+    strncpy(LIP,lip,IP_LEN);
+    LPORT = lport;
+    strncpy(RIP,mip,IP_LEN);
+    RPORT = mport;
+    ((QUdpSocket*)sock)->setSocketOption(QAbstractSocket::MulticastLoopbackOption, 0);//禁止本机接收
+    ((QUdpSocket*)sock)->joinMulticastGroup(QHostAddress(mip));//这句是关键，加入组播地址
+    if(lport)  // 如果本地端口不是0,那么就要bind本地端口
+    {
+        ((QUdpSocket*)sock)->bind(quint16(lport),QUdpSocket::ReuseAddressHint);
+        connect(((QUdpSocket*)sock), SIGNAL(readyRead()),
+                      this, SLOT(ReadData()));
+    }
+    QString sip = QString("R:%1:%2,L:%3:%4").arg(LIP).arg(LPORT).arg(RIP).arg(RPORT);
+    emit gui->s_treeItem_add(NO,TYPE_UDP,QString("UDPMS"),QStringList("UDPMS")<<sip);
+    emit gui->s_tableItem_add(NO,0,0,QString(u8"NOTICE:UDP组播源创建成功:%1").arg(sip));
+}
+void COMM::set_MultC(char* lip, int lport,char* cip, int cport)
+{
+    qDebug()<<lip<<lport<<cip<<cport;
+    sock = new QUdpSocket(this);
+    NO = SEQ++;
+    TYPE = TYPE_UDP;
+    strncpy(LIP,lip,IP_LEN);
+    LPORT = lport;
+    strncpy(RIP,cip,IP_LEN);
+    RPORT = cport;
+    if(lport)  // 如果本地端口不是0,那么就要bind本地端口
+    {
+        ((QUdpSocket*)sock)->bind(quint16(lport),QUdpSocket::ReuseAddressHint);
+        connect(((QUdpSocket*)sock), SIGNAL(readyRead()),
+                      this, SLOT(ReadData()));
+    }
+    QString sip = QString("R:%1:%2,L:%3:%4").arg(LIP).arg(LPORT).arg(RIP).arg(RPORT);
+    emit gui->s_treeItem_add(NO,TYPE_UDP,QString("UDPMS"),QStringList("UDPMS")<<sip);
+    emit gui->s_tableItem_add(NO,0,0,QString(u8"NOTICE:UDP组播源创建成功:%1").arg(sip));
+}
+void COMM::TCPS_acceptError(QAbstractSocket::SocketError socketError)
+{
+    qDebug()<< "TCPS_acceptError" << socketError;
+    Disconnected();
+}
+
+void COMM::TCP_stateChanged(QAbstractSocket::SocketState socketState)
+{
+    qDebug()<< "TCP_stateChanged" << socketState;
+    if(TYPE_TCPC == TYPE)
+    {
+        switch (socketState) {
+        case QAbstractSocket::HostLookupState:
+            emit gui->s_tableItem_add(NO,0,0,QString(u8"NOTICE:TCPC HostLookupState R:%1:%2").arg(RIP).arg(RPORT));
+            break;
+        case QAbstractSocket::ConnectingState:
+            emit gui->s_tableItem_add(NO,0,0,QString(u8"NOTICE:TCPC准备连接 R:%1:%2").arg(RIP).arg(RPORT));
+            break;
+        case QAbstractSocket::ConnectedState:
         {
-        case TYPE_TCPS:
-        case TYPE_UDP:
-            if(strncmp(lip,p->LIP,strlen(p->LIP)) == 0 && p->LPORT == lport) { mutex.unlock();return -1;}
+            strncpy(LIP,((QTcpSocket*)sock)->localAddress().toString().toLocal8Bit().data(),IP_LEN);
+            LPORT = ((QTcpSocket*)sock)->localPort();
+            connect(((QTcpSocket*)sock),SIGNAL(readyRead()),this,SLOT(ReadData()));
+            QString sip = QString("L:%1:%2,R:%3:%4").arg(LIP).arg(LPORT).arg(RIP).arg(RPORT);
+            emit gui->s_tableItem_add(NO,0,0,QString(u8"NOTICE:TCPC新连接 %1").arg(sip));
+            emit gui->s_treeItem_add(NO,TYPE_TCPA,QString("TCP Client"),QStringList("TCPC")<<sip);
+            break;
+        }
+        case QAbstractSocket::ClosingState:
+            Disconnected();
+            break;
+        case QAbstractSocket::UnconnectedState:
+            emit gui->s_tableItem_add(NO,0,0,QString(u8"NOTICE:TCPC连接失败 R:%1:%2").arg(RIP).arg(RPORT));
+            for(QList<COMM*>::iterator it = gui->qcomm.begin(); it != gui->qcomm.end(); it++)
+            {
+                if((*it)->NO== NO)
+                {
+                    gui->qcomm.erase(it);
+                    break;
+                }
+            }
+            ((QTcpSocket*)sock)->close();
+            sock = 0;
+            delete this;
             break;
         default:
             break;
         }
     }
-    TYPE = type;
-    switch (TYPE)
+    else if(TYPE_TCPA == TYPE && QAbstractSocket::ClosingState == socketState)
     {
-    case TYPE_TCPS:
-        strncpy(LIP,lip,IP_LEN -1);
-        LPORT = lport;
-        server = new QTcpServer;
-        if(server == NULL) return -1;
-        if(!server->listen(QHostAddress(LIP),quint16(LPORT)))
-        {
-            server->close();
-            mutex.unlock();
-            QString * str = str_lip();
-            emit s_tableAddItem(NULL,NULL,NULL,QString(u8"新建TCP Server通道失败 ")+ *str);
-            delete str;
-            //QThread::sleep(1);
-            this->destory();
-            return -1;
-        }
-        else
-        {
-            connect(server,SIGNAL(newConnection()),this,SLOT(TCPS_new()));
-            connect(this,SIGNAL(s_TCP_disconnect()),this,SLOT(TCP_disconnect()),Qt::QueuedConnection);
-            QString *str = str_lip();
-            emit s_tableAddItem(QString(u8"通道") + QString::number(NO), \
-                                NULL,NULL,QString(u8"新建TCP Server通道")+ *str);
-            QStringList sl;
-            sl.append(*str);
-            emit s_treeAddItem(TYPE_TCPS,NO,sl);
-            delete str;
-        }
+        Disconnected();
+    }
+}
 
-        break;
+void COMM::ReadData()
+{
+    qDebug()<< "ReadData" ;
+    QString buf;
+    switch (TYPE) {
     case TYPE_TCPA:
-        strncpy(LIP,lip,IP_LEN -1);
-        strncpy(RIP,rip,IP_LEN -1);
-        LPORT = lport;
-        RPORT = rport;
-        break;
     case TYPE_TCPC:
-        strncpy(RIP,rip,IP_LEN -1);
-        RPORT = rport;
-        qDebug() << RIP << RPORT;
-        tcpsock = new QTcpSocket;
-        tcpsock->connectToHost(QHostAddress(RIP),quint16(RPORT),QTcpSocket::ReadWrite);
-        connect(tcpsock,SIGNAL(connected()),this,SLOT(TCP_connect()));
+        buf = ((QTcpSocket*)(sock))->readAll();
         break;
     case TYPE_UDP:
+        while (((QUdpSocket*)(sock))->hasPendingDatagrams()) {
+                  if(((QUdpSocket*)(sock))->peerAddress()== QHostAddress(RIP) &&\
+                     ((QUdpSocket*)(sock))->peerPort() == RPORT)
+                  {
+                      QNetworkDatagram datagram = ((QUdpSocket*)(sock))->receiveDatagram();
+                      buf += datagram.data();
+                  }
 
+              }
         break;
-    case TYPE_UDPBS:
-
+    case TYPE_MS:
+        qDebug() << "TYPE_MS";
         break;
-    case TYPE_UDPBR:
-
+    case TYPE_MR:
+        qDebug() << "TYPE_MR";
         break;
-
     default:
         break;
     }
-    mutex.unlock();
-    return 0;
-}
-
-int COMM::TCPS_new()
-{
-    qDebug() << "TCP Server: "<< LIP << ":"<< LPORT << ", Get New Connection";
-
-    QTcpSocket* sock = server->nextPendingConnection();
-    if (sock == NULL) return -1;
-    char lip[IP_LEN],rip[IP_LEN];
-    int lport, rport;
-    strncpy(lip, sock->localAddress().toString().toLocal8Bit().data(),IP_LEN);
-    lport = sock->localPort();
-    strncpy(rip, sock->peerAddress().toString().toLocal8Bit().data(),IP_LEN);
-    rport = sock->peerPort();
-    COMM* comm = new COMM(sock,TYPE_TCPA,lip,lport,rip,rport);
-    if(comm == NULL) emit s_tableAddItem(QString(u8"通道") + QString::number(comm->NO),NULL,NULL,QString(u8"内存不够tcpa"));
-
-    return 0;
-}
-
-int COMM::TCP_read()
-{
-    emit this->s_tableAddItem(QString(u8"通道") + QString::number(this->NO),\
-                              QString(u8"接收"),\
-                              QString(u8"报文"),tcpsock->readAll());
-    return 0;
-}
-int COMM::TCP_write(const QString &buf)
-{
-    emit this->s_tableAddItem(QString(u8"通道") + QString::number(NO),\
-                              QString(u8"发送"),\
-                              QString(u8"报文"),buf);
-    int write_len = tcpsock->write(buf.toLocal8Bit());
-    if(write_len != buf.size())
+    if(buf.size())
     {
-        emit this->s_tableAddItem(QString(u8"通道") + QString::number(NO),NULL,
-                                  QString(u8"提示"),QString(u8"仅发送了:") + QString::number(write_len));
+        emit gui->s_tableItem_add(NO,2,1,buf);
     }
-    return write_len;
-}
-int COMM::TCP_connect()
-{
-    strncpy(this->LIP,this->tcpsock->localAddress().toString().toLocal8Bit().data(),IP_LEN);
-    this->LPORT = this->tcpsock->localPort();
-    strncpy(this->RIP,this->tcpsock->peerAddress().toString().toLocal8Bit().data(),IP_LEN);
-    this->RPORT = this->tcpsock->peerPort();
-    TCP_setconnected();
 
-    set_notice();
-    return 0;
 }
-int COMM::TCP_disconnect()
+void COMM::WriteData(const QString& buf)
 {
-    QString* str;
-    if(TYPE == TYPE_TCPS)
-    {
-       str = str_lip();
-        disconnect(server,SIGNAL(newConnection()),this,SLOT(TCPS_new()));
-        disconnect(this,SIGNAL(s_TCP_disconnect()),this,SLOT(TCP_disconnect()));
-        server->close();
-        qDebug() << u8"关闭连接 TCP Server";
+    qDebug()<< "TCP_Write" << buf;
+    switch (TYPE) {
+    case TYPE_TCPA:
+    case TYPE_TCPC:
+        ((QTcpSocket*)(sock))->write(buf.toLocal8Bit());
+        break;
+    case TYPE_UDP:
+        ((QUdpSocket*)(sock))->writeDatagram(buf.toLocal8Bit(),QHostAddress(RIP),RPORT);
+        break;
+    default:
+        break;
     }
-    else if(TYPE == TYPE_TCPA || TYPE == TYPE_TCPC)
+    emit gui->s_tableItem_add(NO,1,1,buf);
+}
+void COMM::Disconnected()
+{
+    qDebug()<< "TCP_disconnected" ;
+    QString sip;
+    switch (TYPE)
     {
-        str = str_ip();
-        TCP_setdisconnected();
-        tcpsock->close();
+    case TYPE_TCPS:
+        sip = QString("TCPS L%1:%2").arg(LIP).arg(LPORT);
+        break;
+    case TYPE_TCPA:
+        sip = QString("TCPA L:%1:%2,R:%3:%4").arg(LIP).arg(LPORT).arg(RIP).arg(RPORT);
+        disconnect(((QTcpSocket*)sock),\
+                SIGNAL(stateChanged(QAbstractSocket::SocketState)),\
+                this,\
+                SLOT(TCP_stateChanged(QAbstractSocket::SocketState)));
+        break;
+    case TYPE_TCPC:
+        sip = QString("TCPC L:%1:%2,R:%3:%4").arg(LIP).arg(LPORT).arg(RIP).arg(RPORT);
+        disconnect(((QTcpSocket*)sock),\
+                SIGNAL(stateChanged(QAbstractSocket::SocketState)),\
+                this,\
+                SLOT(TCP_stateChanged(QAbstractSocket::SocketState)));
+        break;
+    case TYPE_UDP:
+        sip = QString("UDP L:%1:%2,R:%3:%4").arg(LIP).arg(LPORT).arg(RIP).arg(RPORT);
+        break;
+    default:
+        break;
     }
-    emit this->s_tableAddItem(QString(u8"通道") + QString::number(this->NO),\
-                              NULL, NULL,QString(u8"关闭连接:")+ *str);
-    emit s_treeDelItem(NO);
-    delete str;
-    this->destory();
-    qDebug() << u8"关闭连接";
-    return 0;
-}
-
-void COMM::TCP_error(QAbstractSocket::SocketError socketError)
-{
-    emit s_tableAddItem(QString(u8"通道")+ QString::number(this->NO),\
-                        NULL,NULL,\
-                        QString(u8"QT错误号:") +QString::number(socketError) + u8" " + tcpsock->errorString());
-    emit this->s_treeDelItem(NO);
-    TCP_setdisconnected();
-    tcpsock->close();
-    this->destory();
-}
-
-QString* COMM::str_ip()
-{
-    QString * str = new QString;
-    str->append(u8"本地:"),str->append(LIP), str->append(u8":"), str->append(QString::number(this->LPORT)),
-    str->append(u8" 远端:"),str->append(RIP), str->append(u8":"),str->append(QString::number(this->RPORT));
-    return str;
-}
-QString* COMM::str_lip()
-{
-    QString * str = new QString;
-    str->append(u8"本地:"),str->append(LIP), str->append(u8":"), str->append(QString::number(this->LPORT));
-    return str;
-}
-QString* COMM::str_rip()
-{
-    QString * str = new QString;
-    str->append(u8"远端:"),str->append(RIP), str->append(u8":"),str->append(QString::number(this->RPORT));
-    return str;
-}
-void COMM::TCP_setconnected()
-{
-    connect(tcpsock,SIGNAL(readyRead()), this,SLOT(TCP_read()));
-    connect(tcpsock,SIGNAL(disconnected()), this,SLOT(TCP_disconnect()));
-    connect(this,SIGNAL(s_TCP_disconnect()), this,SLOT(TCP_disconnect()),Qt::QueuedConnection);
-    connect(this,SIGNAL(s_TCP_write(const QString&)), this,SLOT(TCP_write(const QString&)));
-    connect(tcpsock,SIGNAL(error(QAbstractSocket::SocketError)),this,SLOT(TCP_error(QAbstractSocket::SocketError)));
-}
-void COMM::TCP_setdisconnected()
-{
-    disconnect(tcpsock,0,0,0);
-    disconnect(this,SIGNAL(s_TCP_disconnect()), this,SLOT(TCP_disconnect()));
-    disconnect(this,SIGNAL(s_TCP_write(const QString&)), this,SLOT(TCP_write(const QString&)));
-}
-void COMM::SETtimer(int interval)
-{
-
-    TIMEID = startTimer(interval);
-    qDebug() <<"startTimer" << interval << TIMEID;
-}
-void COMM::STOPtimer()
-{
-    qDebug() <<"killTimer" << TIMEID;
-    if(TIMEID != 0) this-> killTimer(TIMEID);
-    TIMEID = 0;
-}
-void COMM::timerEvent(QTimerEvent *event)
-{
-    if (event->timerId() == TIMEID)
+    emit gui->s_tableItem_add(NO,0,0,QString(u8"NOTICE:关闭连接1 %1").arg(sip));
+    emit gui->s_treeItem_del(NO);
+    //强制删除gui->qcomm中的this, 不管数据的同步问题,谁叫signal-slot-emit类似于中断,又不能暂时禁用呢.
+    for(QList<COMM*>::iterator it = gui->qcomm.begin(); it != gui->qcomm.end(); it++)
     {
-        switch (TYPE) {
-        case TYPE_TCPA:
-        case TYPE_TCPC:
-            TCP_write(QString(u8"11 22 33 44 55 88"));
-            break;
-        default:
+        if((*it)->NO== NO)
+        {
+            gui->qcomm.erase(it);
             break;
         }
     }
 }
-void COMM::COMM::set_notice()
-{
-    QString* str = str_ip();
-    char cstr[][64] =
-    {
-        u8"TCP Server Accept成功连入：",
-        u8"TCP Client成功连接到服务端：",
-    };
 
-    emit this->s_tableAddItem(QString(u8"通道") + QString::number(NO),NULL,NULL,QString(cstr[TYPE- TYPE_TCPA]) + *str);
 
-    QStringList sl(*str);
-    sl.append(QString(u8"发送"));
-    sl.append(QString(u8"11 22 33 44 55 66"));
-    sl.append(QString(u8"定时发送停止"));
-    sl.append(QString(u8"1000"));
-    emit this->s_treeAddItem(TYPE,NO,sl);
-    delete str;
-}
 int is_valid_ip(char* ip)
 {
     int a = 0, b = 0, c = 0, d = 0;
@@ -384,3 +348,4 @@ int is_valid_ip(char* ip)
     }
     return 0;
 }
+

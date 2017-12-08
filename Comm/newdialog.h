@@ -3,6 +3,13 @@
 
 #include <QDialog>
 #include <QtWidgets>
+#include <QtSerialPort/QtSerialPort>
+#include <QtSerialPort/QSerialPortInfo>
+#include <QString>
+#include <QByteArray>
+#include <QMessageBox>
+#include <QtNetwork>
+
 #include "mainwindow.h"
 #include "Comm.h"
 namespace Ui {
@@ -22,11 +29,8 @@ private:
 void setenable( int num);
 
 private slots:
-
-
-    void on_pushButtonOK_clicked();
-
-    void on_radioButtonTCPS_toggled(bool checked);
+    void on_pushButtonOK_clicked();//点击触发
+    void on_radioButtonTCPS_toggled(bool checked); //变位触发
 
     void on_radioButtonTCPC_toggled(bool checked);
 
@@ -35,9 +39,9 @@ private slots:
     void on_radioButtonMulticast_toggled(bool checked);
 
     void on_radioButtonSerial_toggled(bool checked);
+
 signals:
-    void s_tableAddItem(const QString &, const QString &, const QString &, const QString &);
-    void s_treeAddItem(int, int, QStringList&);
+
 private:
     Ui::NewDialog *ui;
 
