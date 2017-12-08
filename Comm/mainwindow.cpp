@@ -14,9 +14,6 @@ MainWindow::MainWindow(QWidget *parent) :
     QPalette palette;
     palette.setBrush(this->backgroundRole(), Qt::gray);
     this->setPalette(palette);
-    qDebug()<< u8"Thread Start main" <<QThread::currentThread() << QDateTime::currentDateTime().toString("hh:mm:ss.zzz");
-    comm = new COMM;
-    if(comm == NULL) return;
 
     treeView_init();
     tableView_init();
@@ -110,7 +107,7 @@ int MainWindow::treeView_init()
     ui->treeView->setSelectionBehavior(QTableView::SelectRows);
     ui->treeView->setColumnWidth(0,120);
     connect(this,SIGNAL(s_treeItem_add(int,int,const QString&,const QStringList&)),this, SLOT(treeItem_add(int,int,const QString&,const QStringList&)));
-
+    connect(this,SIGNAL(s_treeItem_del(int)),this, SLOT(treeItem_del(int)));
     //emit treeItem_add(5,u8"测试",QStringList() << u8"aaa"<<u8"bbb"<<u8"ccc"<<u8"ddd");
     return 0;
 }
@@ -215,12 +212,29 @@ void MainWindow::treeItem_add(int id, int type, const QString & info,const QStri
         item->appendRow(new QStandardItem(QString(u8"定时发送停止")));
         item->setChild(row++,1,new QStandardItem(QString(u8"1000")));
     }
-
+    char icon[][32] = {
+        ":/res/tcps.png",
+        ":/res/tcpa.png",
+        ":/res/tcpc.png",
+        ":/res/udp.png",
+    };
+    if(type <= TYPE_UDP) item->setIcon(QIcon(icon[type-TYPE_TCPS]));
     item->appendRow(new QStandardItem(QString(u8"关闭")));
     mtree->appendRow(item);
     mtree->setItem(mtree->rowCount()-1,1,new QStandardItem(info));
 }
-
+void MainWindow::treeItem_del(int id)
+{
+    qDebug() << mtree->rowCount();
+    for(int i = 0; i!= mtree->rowCount(); i++)
+    {
+        if(mtree->index(i,0).data().toString().compare(QString::number(id)) == 0)
+        {
+            mtree->removeRow(i);
+            break;
+        }
+    }
+}
 
 void MainWindow::on_treeView_doubleClicked(const QModelIndex &index)
 {
@@ -232,27 +246,71 @@ void MainWindow::on_treeView_doubleClicked(const QModelIndex &index)
         if(index.data().toString().compare(QString(u8"关闭")) == 0)
         {
             mtree->removeRow(pf.row());
-            emit comm->s_delete_channel(id);//删除通道
+            for(QList<COMM*>::iterator it = qcomm.begin(); it != qcomm.end(); it++)
+            {
+                if((*it)->NO== id)
+                {
+                    (*it)->Disconnected();//删除通道
+                    delete (*it);
+                    //qcomm.erase(it);
+                    break;
+                }
+            }
         }
         else if(index.data().toString().compare(QString(u8"发送")) == 0)
         {
             QString buf = pf.child(index.row(),1).data().toString();
-            emit comm->s_TCP_Write(id,buf);
+            for(QList<COMM*>::iterator it = qcomm.begin(); it != qcomm.end(); it++)
+            {
+                if((*it)->NO== id)
+                {
+                    (*it)->WriteData(buf);
+                    break;
+                }
+            }
 
         }
         else if(index.data().toString().compare(QString(u8"定时发送停止")) == 0)
         {
             QStandardItem* item = mtree->itemFromIndex(index);
             item->setText(QString(u8"定时发送开始"));
+            QString str; //保存要定时发送的内容
+            for(int i = 0; i!= 10; i++)
+            {
+                QModelIndex pc = pf.child(i,0);
+                if(pc.isValid() && (pc.data().toString().compare(QString(u8"发送")) == 0))
+                {
+                    str = pf.child(i,1).data().toString();
+                    break;
+                }
+            }
             //以下开始定时发送
-            emit comm->new_timer(id,pf.child(index.row(),1).data().toInt());
+            for(QList<COMM*>::iterator it = qcomm.begin(); it != qcomm.end(); it++)
+            {
+                if((*it)->NO== id)
+                {
+                    (*it)->buf_size = str.size();
+                    strncpy((*it)->buf,str.toLocal8Bit().data(),BUF_LEN);
+                    (*it)->SetTimer(pf.child(index.row(),1).data().toInt());
+                    break;
+                }
+            }
+            //emit comm->new_timer(id,pf.child(index.row(),1).data().toInt());
         }
         else if(index.data().toString().compare(QString(u8"定时发送开始")) == 0)
         {
             QStandardItem* item = mtree->itemFromIndex(index);
             item->setText(QString(u8"定时发送停止"));
             //以下停止定时发送
-            emit comm->delete_timer(id);
+            for(QList<COMM*>::iterator it = qcomm.begin(); it != qcomm.end(); it++)
+            {
+                if((*it)->NO== id)
+                {
+                    (*it)->StopTimer();
+                    break;
+                }
+            }
+            //emit comm->delete_timer(id);
         }
     }
     else if(index.column() == 1)
@@ -271,6 +329,14 @@ void MainWindow::on_treeView_doubleClicked(const QModelIndex &index)
             {
                 QStandardItem* item = mtree->itemFromIndex(index);
                 item->setText(text);
+                for(QList<COMM*>::iterator it = qcomm.begin(); it != qcomm.end(); it++)
+                {
+                    if((*it)->NO== id)
+                    {
+                        strncpy((*it)->buf,text.toLocal8Bit().data(),BUF_LEN);
+                        break;
+                    }
+                }
             }
         }
         else if(pr.data().toString().startsWith(QString(u8"定时发送")))

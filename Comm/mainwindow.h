@@ -37,6 +37,7 @@ private slots:
     void tableView_rightMenu(const QPoint &pos);  //右键信号槽函数
 
     void treeItem_add(int id, int type, const QString & info, const QStringList& ql);
+    void treeItem_del(int id);
     void on_treeView_doubleClicked(const QModelIndex &index);//treeView有双击事件
 
 signals:
@@ -46,7 +47,7 @@ signals:
     void s_treeItem_del(int id);
 
 public:
-    COMM* comm; //用于关联SIGNAL-SLOT
+    QList<COMM*> qcomm; //每个new的COMM全部压边这个qcomm中. 不考虑emit引起的数据同步问题.
 private:
     Ui::MainWindow *ui;
     QStandardItemModel* mtree;

@@ -44,7 +44,7 @@ void NewDialog::on_pushButtonOK_clicked()//点击触发
     char lip[IP_LEN] ={}, rip[IP_LEN] ={};
     int lport = 0, rport = 0;
 
-    if(ui->radioButtonTCPS->isChecked() || ui->radioButtonTCPC->isChecked())
+    if(ui->radioButtonTCPS->isChecked() || ui->radioButtonTCPC->isChecked() || ui->radioButtonUDP->isChecked())
     {
         strncpy(lip,ui->comboBoxLIP->currentText().toLatin1().data(), IP_LEN-1);
         if(! is_valid_ip(lip)) {QMessageBox::warning(this,"Warning","Local IP invalid");return;}
@@ -57,8 +57,49 @@ void NewDialog::on_pushButtonOK_clicked()//点击触发
 
         if(ui->radioButtonTCPS->isChecked())
         {
-            gui->comm->set_TCPS(lip,lport);
+            COMM* comm = new COMM;
+            if(comm != NULL)
+            {
+                comm->set_TCPS(lip,lport);
+                gui->qcomm.append(comm);
+            }
         }
+        else if(ui->radioButtonTCPC->isChecked())
+        {
+            COMM* comm = new COMM;
+            if(comm != NULL)
+            {
+                comm->set_TCPC(rip,rport);
+                gui->qcomm.append(comm);
+            }
+        }
+        else if(ui->radioButtonUDP->isChecked())
+        {
+            COMM* comm = new COMM;
+            if(comm != NULL)
+            {
+                comm->set_UDP(lip,lport,rip,rport);
+                gui->qcomm.append(comm);
+            }
+        }
+    }
+    else if(ui->radioButtonMulticast->isChecked())
+    {
+        if(ui->radioButtonMulticastS->isChecked()) //组播源
+        {
+            COMM* comm = new COMM;
+            if(comm != NULL)
+            {
+                comm->set_MultS(lip,lport,rip,rport);
+                gui->qcomm.append(comm);
+            }
+        }else if(ui->radioButtonMulticastC->isChecked())//加入组播
+        {
+            COMM* comm = new COMM;
+            comm->set_MultC(lip,lport,rip,rport);
+            gui->qcomm.append(comm);
+        }
+
     }
     this->destory();
    // accept();

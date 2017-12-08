@@ -9,3 +9,6 @@ RunHide/Debug/*
 Release/
 RunHide/Release/
 build*/*
+Win32/*
+x64/*
+bin/*
