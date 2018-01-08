@@ -37,6 +37,15 @@
     <ClCompile Include="utils.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="Dialog_new.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="Main_window.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="CTU.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Co.rc">
