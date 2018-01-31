@@ -1,23 +1,10 @@
 #include "utils.h"
-#include <vector>
-using namespace std;
 
 //以下是InputBox 的所有内容
 #ifdef _WIN64
 #define GWL_HINSTANCE GWLP_HINSTANCE
 #define DWL_DLGPROC     DWLP_DLGPROC
 #endif
-
-//找一个可用的控件ID
-static int find_id(HWND hParent)
-{
-	static int id = 0xABCD;
-	for (int i = 0; i != 500; i++, id++)
-	{
-		if (GetDlgItem(hParent, id) == NULL) break;
-	}
-	return id;
-}
 
 LRESULT  CALLBACK InputBox_Proc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 
@@ -206,6 +193,7 @@ typedef struct __SPLITER_STRUCT_
 	int		rangeB;
 	HDC		hdcDesktop;
 	HPEN    hPen;
+	int		szFrame; //父窗口边框的宽度
 }SPLITER;
 
 LRESULT  CALLBACK Spliter_Proc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
@@ -224,7 +212,7 @@ HWND Spliter(HWND hParent, int ID, int type, int rangeA, int rangeB, int posX, i
 	ss->rangeA = rangeA;
 	ss->rangeB = rangeB;
 
-	ss->hPen = CreatePen(PS_SOLID, 3, RGB(0, 0, 0));
+	ss->hPen = CreatePen(PS_SOLID, SPLITER_WIDTH, RGB(50, 50, 50));
 	static ATOM sclass[2] = {};
 	if (!sclass[type])
 	{
@@ -260,24 +248,26 @@ LRESULT  CALLBACK Spliter_Proc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lP
 	{
 		SPLITER* ss = (SPLITER*)((LPCREATESTRUCT(lParam))->lpCreateParams);
 		SetWindowLongPtr(hWnd, GWLP_USERDATA, LONG_PTR(ss));
-
+		//计算父窗口边框的宽度
+		RECT rcC, rcW;
+		GetClientRect(ss->hParent, &rcC);
+		GetWindowRect(ss->hParent, &rcW);
+		ss->szFrame = (rcW.right - rcW.left - rcC.right) / 2;
 		//规范rangeA和rangeB的范围
-		RECT rcP;
-		GetClientRect(ss->hParent, &rcP);
-		if (ss->rangeB = -1) ss->rangeB = (ss->type)? rcP.bottom: rcP.right;
+		if (ss->rangeB == -1) ss->rangeB = (ss->type)? rcC.bottom: rcC.right;
 		return (INT_PTR)TRUE;
 	}
 	case WM_LBUTTONDOWN:
+	if(MK_LBUTTON == wParam)
 	{
 		SPLITER* ss = (SPLITER*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
 		GetCursorPos(&(ss->LBDownPos));
 		SetCapture(hWnd);
-		break;
 	}
+	break;
 	case WM_LBUTTONUP:
 	case WM_NCLBUTTONUP:
 	{
-		InvalidateRect(hWnd, NULL, TRUE);//强制整个分隔条重绘
 		SPLITER* ss = (SPLITER*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
 		POINT p0 = {};
 		MapWindowPoints(hWnd, ss->hParent, &p0, 1);//从本控件的坐标映射到父窗口坐标
@@ -290,30 +280,35 @@ LRESULT  CALLBACK Spliter_Proc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lP
 		{ //是水平分隔, 水平的Y坐标不能动
 			int shift = mp.y - ss->LBDownPos.y;
 			int pp = p0.y + shift;
-			if ((pp < ss->rangeA) || (pp > ss->rangeB)) break;
-			SetWindowPos(hWnd, NULL, \
-				p0.x, \
-				pp, \
-				rcC.right, \
-				rcC.bottom, \
-				SWP_NOZORDER);
-			PostMessage(ss->hParent, MSG_HSPLITER, WPARAM(shift), (LPARAM)hWnd);
+			if ((pp >= ss->rangeA) && (pp <= ss->rangeB))
+			{
+				SetWindowPos(hWnd, NULL, \
+					p0.x, \
+					pp, \
+					rcC.right, \
+					rcC.bottom, \
+					SWP_NOZORDER);
+				PostMessage(ss->hParent, MSG_HSPLITER, WPARAM(shift), (LPARAM)hWnd);
+			}
 		}
 		else //垂直分隔
 		{
 
 			int shift = mp.x - ss->LBDownPos.x;
 			int qq = p0.x + shift;
-			if ((qq < ss->rangeA) || (qq > ss->rangeB)) break;
-			SetWindowPos(hWnd, NULL, \
-				qq, \
-				p0.y, \
-				rcC.right, \
-				rcC.bottom, \
-				SWP_NOZORDER);
-			PostMessage(ss->hParent, MSG_VSPLITER, WPARAM(shift), (LPARAM)hWnd);
-		}
+			if ((qq >= ss->rangeA) && (qq <= ss->rangeB))
+			{
+				SetWindowPos(hWnd, NULL, \
+					qq, \
+					p0.y, \
+					rcC.right, \
+					rcC.bottom, \
+					SWP_NOZORDER);
+				PostMessage(ss->hParent, MSG_VSPLITER, WPARAM(shift), (LPARAM)hWnd);
+			}
 
+		}
+		InvalidateRect(NULL, NULL, TRUE);//强制整个分隔条重绘
 		break;
 	}
 	case WM_MOUSEMOVE:
@@ -322,23 +317,30 @@ LRESULT  CALLBACK Spliter_Proc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lP
 		if (wParam == MK_LBUTTON)
 		{
 			SPLITER* ss = (SPLITER*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
-			POINT	p = {};
+			POINT p;
 			GetCursorPos(&p);
+			
 			RECT rc;
 			GetWindowRect(hWnd, &rc);//获取分隔条在屏幕坐标系的位置
-			//((ss->type)? (rc.left =p.y):(rc.top = p.x));
 			InvalidateRect(NULL, &rc, TRUE);//强制整个父窗口重绘
 			ss->hdcDesktop = GetDC(NULL); //获取屏幕HDC
 			HGDIOBJ hOld = SelectObject(ss->hdcDesktop, ss->hPen);
 			if (ss->type) // 水平分隔
 			{
-				MoveToEx(ss->hdcDesktop, rc.left +2, p.y, NULL);
-				LineTo(ss->hdcDesktop, rc.right -2, p.y);
+				POINT pf[2] = { {0, ss->rangeA },{0, ss->rangeB} };
+				MapWindowPoints(ss->hParent, NULL, pf, 2);//从父窗口坐标映射到屏幕坐标系
+				if (p.y < pf[0].y) p.y = pf[0].y; else if (p.y > pf[1].y) p.y = pf[1].y;
+				MoveToEx(ss->hdcDesktop, rc.left + 2, p.y, NULL);
+				LineTo(ss->hdcDesktop, rc.right - 2, p.y);
 			}
 			else// 垂直分隔
 			{
-				MoveToEx(ss->hdcDesktop, p.x, rc.top+2, NULL);
+				POINT pf[2] = { { ss->rangeA,0 },{ ss->rangeB,0} };
+				MapWindowPoints(ss->hParent, NULL , pf, 2);//从父窗口坐标映射到屏幕坐标系
+				if (p.x < pf[0].x) p.x = pf[0].x; else if (p.x > pf[1].x) p.x = pf[1].x;
+				MoveToEx(ss->hdcDesktop, p.x, rc.top+2, NULL); //屏幕坐标系
 				LineTo(ss->hdcDesktop, p.x, rc.bottom-2);
+
 			}
 			SelectObject(ss->hdcDesktop, hOld);
 			ReleaseDC(NULL, ss->hdcDesktop);//释放屏幕HDC
@@ -534,6 +536,8 @@ LRESULT  CALLBACK Sidebar_Proc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lP
 		SetWindowLongPtr(hWnd, GWLP_USERDATA, LONG_PTR(sbs));
 
 		HDC hdc = GetDC(hWnd);
+		sbs->hdc = CreateCompatibleDC(hdc);
+		sbs->hBitmap = CreateCompatibleBitmap(hdc, 100, SIDEBAR_WIDTH);
 		//查找字体高度
 		TEXTMETRIC ptm = {};
 		GetTextMetrics(hdc, &ptm);
@@ -822,6 +826,17 @@ LRESULT  CALLBACK Sidebar_Proc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lP
 		}
 		break;
 	}
+	case MSG_SBRESET:
+	{
+		SIDEBAR* sbs = (SIDEBAR*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
+		if (sbs->ctrlID != -1)
+		{
+			sbs->ctrlID = -1;
+			SpiterPaint(hWnd, sbs);
+			InvalidateRect(hWnd, NULL, TRUE);
+		}
+		break;
+	}
 	default:
 		return ::DefWindowProc(hWnd, message, wParam, lParam);
 	}
@@ -833,7 +848,7 @@ void SpiterPaint(HWND hWnd, SIDEBAR* sbs)
 	HDC hdc = GetDC(hWnd);
 	//创建兼容DC
 	RECT rc = {};
-	sbs->hdc = CreateCompatibleDC(hdc);
+	DeleteObject(sbs->hBitmap);
 	if (sbs->type & 0x0FFFFFFFE)
 	{
 		sbs->hBitmap = CreateCompatibleBitmap(hdc, sbs->ctrlLen, SIDEBAR_WIDTH);
@@ -912,6 +927,7 @@ void SpiterPaint(HWND hWnd, SIDEBAR* sbs)
 		}
 		SelectObject(sbs->hdc, hOld);
 	}
+	
 	ReleaseDC(hWnd, hdc);
 }
 
@@ -921,21 +937,28 @@ void SpiterPaint(HWND hWnd, SIDEBAR* sbs)
 typedef struct __PANE_STRUCT__
 {
 	HINSTANCE hInst; //进程实例句柄
-	PANE_ELEM* panee; //指向PANE_ELEM
+	PANE_ELEM* ppa; //指向PANE_ELEM
 	int     num;  //通用子窗口容器包含的子窗口的数量
 	HWND	hParent; //通用子窗口容器的父窗口句柄
 	HWND	hReceive; //消息接收句柄
 	HDC		hdc;     //通用子窗口容器的标题hdc
 	HBITMAP hBitmap; //通用子窗口容器的标题Bitmap
+	int		fontStart; //字体离上边框的距离
 	HBRUSH  hBrush;
+	unsigned int mark; //标志控件位置
+	TCHAR	titleName[64]; //当前需要显示的标题
+	int		szTitleName ; //当前需要显示的标题
+	HICON	hIcon[8];		
+	int		markMouse;		//标记鼠标移动到哪个按钮上了
+	int		markMouseClick; //标记鼠标点击了钉这个按钮
+	HMENU	hMenu;			//用于响应菜单按钮
+	HWND	hSpliter;
 	HWND	hSidebar;
-	HWND	hSpliterLeft;
-	HWND	hSpliterTop;
-	HWND	hSpliterBottom;
+	HWND	hSidebarConnected;//与此关连的hSidebarConnected
 }PANE;
 
 LRESULT  CALLBACK Pane_Proc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
-HWND Pane(HWND hParent, int ID, PANE_ELEM* panee, int num,RECT* rc)
+HWND Pane(HWND hParent, int ID, PANE_ELEM* ppa, int num,RECT* rc, unsigned int mark)
 {
 	HINSTANCE hInst = (HINSTANCE)GetWindowLong(hParent, GWL_HINSTANCE);
 	TCHAR* szClassName = _TEXT("PANE_CLASS");
@@ -948,48 +971,623 @@ HWND Pane(HWND hParent, int ID, PANE_ELEM* panee, int num,RECT* rc)
 		wcex.lpfnWndProc = Pane_Proc;
 		wcex.hInstance = hInst;
 		wcex.hCursor = LoadCursor(NULL, IDC_ARROW);
-		//wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+		//wcex.hbrBackground = (HBRUSH)(COLOR_MENU + 1);
 		wcex.lpszClassName = szClassName;
 		sclass = RegisterClassExW(&wcex);
 		if (sclass = RegisterClassExW(&wcex)) return NULL;
 	}
 
-	PANE* pe = (PANE*)malloc(sizeof(PANE));
-	if (pe == NULL) return NULL;
-	memset(pe, 0, sizeof(PANE));
-	pe->hInst = hInst;
-	pe->hParent = hParent;
-	pe->panee = panee;
-	pe->num = num;
-	HWND hChild = CreateWindowEx(0, szClassName, NULL, WS_CHILD | WS_VISIBLE|WS_DLGFRAME, \
+	PANE* ppe = (PANE*)malloc(sizeof(PANE));
+	if (ppe == NULL) return NULL;
+	memset(ppe, 0, sizeof(PANE));
+	ppe->hInst = hInst;
+	ppe->hParent = hParent;
+	ppe->ppa = ppa;
+	ppe->num = num;
+	ppe->mark = mark;
+	HWND hChild = CreateWindowEx(0, szClassName, NULL, WS_CHILD | WS_VISIBLE| WS_DLGFRAME, \
 		rc->left, rc->top, \
 		rc->right, rc->bottom, \
-		hParent, HMENU(ID), hInst, (LPVOID)pe);
+		hParent, HMENU(ID), hInst, (LPVOID)ppe);
 	if (!hChild) return NULL;
 	return hChild;
 }
-
+BYTE ANDmaskIconClose[];
+BYTE ANDmaskIconDing1[];
+BYTE ANDmaskIconDing2[];
+BYTE ANDmaskIconDown[];
+BYTE XORmaskIcon[];
+BYTE XORmaskIconEmpty[];
+void Pane_Title_paint(HWND hWnd, RECT* prct);
 LRESULT  CALLBACK Pane_Proc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+#define PANE_ID_SP 19200
+#define TITLE_SIZE 18
+	switch (message)
+	{
+	case WM_CREATE:
+	{
+		PANE* ppe = (PANE*)((LPCREATESTRUCT(lParam))->lpCreateParams);
+		SetWindowLongPtr(hWnd, GWLP_USERDATA, LONG_PTR(ppe));
+		RECT rc,rcP;
+		GetClientRect(hWnd, &rc);
+		GetClientRect(ppe->hParent, &rcP);
+		MapWindowPoints(hWnd, ppe->hParent, LPPOINT(&rcP), 2);//从本控件的坐标映射到父窗口坐标
+
+		if (ppe->mark & PANE_SP_LEFT)
+		{
+			rc.left = SPLITER_WIDTH;
+			ppe->hSpliter = Spliter(hWnd, PANE_ID_SP, TYPE_VSPLITER, 100, rcP.right, 0, 0, rc.bottom);
+		}
+		else if (ppe->mark & PANE_SP_RIGHT)
+		{
+			rc.right -= SPLITER_WIDTH;
+			ppe->hSpliter = Spliter(hWnd, PANE_ID_SP, TYPE_VSPLITER, 100, 500, rc.right, 0, rc.bottom);
+		}
+		else if (ppe->mark & PANE_SP_TOP)
+		{
+			rc.top = SPLITER_WIDTH;
+			ppe->hSpliter = Spliter(hWnd, PANE_ID_SP, TYPE_VSPLITER, 100, rcP.bottom, 0, 0, rc.right);
+		}
+		else if (ppe->mark & PANE_SP_BOTTOM)
+		{
+			rc.bottom -= SPLITER_WIDTH;
+			ppe->hSpliter = Spliter(hWnd, PANE_ID_SP, TYPE_VSPLITER, 100, rcP.bottom, rc.bottom, 0, rc.right);
+		}
+
+		if (ppe->ppa)
+		{
+			for (int i = 0; i != ppe->num; i++)
+			{
+				ppe->ppa[i].lParam = & ppe->ppa[i].rc;
+				memcpy(ppe->ppa[i].lParam, &rc, sizeof(RECT));
+				ppe->ppa[i].hChild = CreateDialogParam(ppe->hInst, \
+					MAKEINTRESOURCE(ppe->ppa[i].ID), \
+					hWnd, \
+					ppe->ppa[i].lpDialogFunc, \
+					LPARAM(ppe->ppa[i].lParam));
+			}
+			lstrcpyn(ppe->titleName,ppe->ppa[0].szName,64);
+			ppe->szTitleName = lstrlen(ppe->titleName);
+			ShowWindow(ppe->ppa[0].hChild, SW_HIDE);
+		}
+
+		HDC hdc = GetDC(hWnd);
+		ppe->hdc = CreateCompatibleDC(hdc);
+		ppe->hBitmap = CreateCompatibleBitmap(hdc, 10, TITLE_SIZE);
+		TEXTMETRIC ptm = {};
+		GetTextMetrics(hdc, &ptm);
+		ppe->fontStart = (TITLE_SIZE - ptm.tmHeight)/2;
+		if (ppe->fontStart < 0) ppe->fontStart = 0;
+		ReleaseDC(hWnd, hdc);
+		//加载ICON
+		const int iconsize = 64;
+
+		ppe->hIcon[0] = CreateIcon(ppe->hInst, iconsize, iconsize, 1, 1, ANDmaskIconClose, XORmaskIconEmpty);
+		ppe->hIcon[1] = CreateIcon(ppe->hInst, iconsize, iconsize, 1, 1, ANDmaskIconClose, XORmaskIcon);
+		ppe->hIcon[2] = CreateIcon(ppe->hInst, iconsize, iconsize, 1, 1, ANDmaskIconDing1, XORmaskIconEmpty);
+		ppe->hIcon[3] = CreateIcon(ppe->hInst, iconsize, iconsize, 1, 1, ANDmaskIconDing1, XORmaskIcon);
+		ppe->hIcon[4] = CreateIcon(ppe->hInst, iconsize, iconsize, 1, 1, ANDmaskIconDing2, XORmaskIconEmpty);
+		ppe->hIcon[5] = CreateIcon(ppe->hInst, iconsize, iconsize, 1, 1, ANDmaskIconDing2, XORmaskIcon);
+		ppe->hIcon[6] = CreateIcon(ppe->hInst, iconsize, iconsize, 1, 1, ANDmaskIconDown, XORmaskIconEmpty);
+		ppe->hIcon[7] = CreateIcon(ppe->hInst, iconsize, iconsize, 1, 1, ANDmaskIconDown, XORmaskIcon);
+		//加载菜单
+		ppe->hMenu = CreatePopupMenu();
+		TCHAR tchMenu[][16] = {
+			_TEXT("关闭"),
+			_TEXT("打开"),
+		};
+		for (int i = 0; i != 2; i++)
+		{
+			InsertMenu(ppe->hMenu, i, MF_BYPOSITION, PANE_ID_SP + 2 + i, tchMenu[i]);
+		}
+
+		return (INT_PTR)TRUE;
+	}
+	case MSG_VSPLITER:
+	{
+		PANE* ppe = (PANE*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
+		RECT rc;
+		GetWindowRect(hWnd, &rc);
+		MapWindowPoints(HWND_DESKTOP, ppe->hParent, (LPPOINT)&rc, 2); //改变自身大小获取的要是包括窗口边框的大小, 不是客户区的大小
+		MoveWindow(hWnd, rc.left, rc.top, rc.right + wParam - rc.left, rc.bottom - rc.top, TRUE);
+		break;
+	}
+	case MSG_HSPLITER:
+	{
+		PANE* ppe = (PANE*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
+		RECT rc;
+		GetWindowRect(hWnd, &rc);
+		MapWindowPoints(HWND_DESKTOP, ppe->hParent, (LPPOINT)&rc, 2); //获取的要是包括窗口边框的大小, 不是客户区的大小
+		MoveWindow(hWnd, rc.left, rc.top, rc.right-rc.left, rc.bottom + wParam-rc.top, TRUE);
+		break;
+	}
+	case WM_SIZE:
+	{
+		RECT rc;
+		GetClientRect(hWnd,&rc);
+		rc.bottom = TITLE_SIZE;
+		Pane_Title_paint(hWnd, &rc);
+	}
+	case WM_MOUSEMOVE:
+	{
+		if (wParam == 0 && HIWORD(lParam) < TITLE_SIZE) //只是鼠标在移动,并且在标题上
+		{
+			PANE* ppe = (PANE*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
+			RECT rc;
+			GetClientRect(hWnd, &rc);
+			int szPos = LOWORD(lParam);
+			int place = rc.right - ((ppe->mark & 0xFFFFFFFC) ? SPLITER_WIDTH : 0);
+			int markRepaint = 0;
+			if ((szPos < place && szPos > place - TITLE_SIZE))
+			{
+				if ((ppe->markMouse & 0x01) == 0) ppe->markMouse = 0x01, markRepaint = 1;
+			}
+			else if (szPos < place - (TITLE_SIZE + 5) && szPos >place - (TITLE_SIZE * 2 + 5))
+			{
+				if ((ppe->markMouse & 0x02) == 0) ppe->markMouse = 0x02, markRepaint = 1;
+			}
+			else if (szPos <place - (TITLE_SIZE * 2 + 10) && szPos > place - (TITLE_SIZE * 3 + 10))
+			{
+				if ((ppe->markMouse & 0x04) == 0) ppe->markMouse = 0x04, markRepaint = 1;
+			}
+			else
+			{
+				if (ppe->markMouse)ppe->markMouse = 0, markRepaint = 1;
+			}
+			if (markRepaint)
+			{
+				RECT rc;
+				GetClientRect(hWnd, &rc);
+				rc.bottom = TITLE_SIZE;
+				InvalidateRect(hWnd, &rc, TRUE);
+				Pane_Title_paint(hWnd, &rc);
+			}
+		}
+		break;
+	}
+	case WM_LBUTTONDOWN: //鼠标左键点下
+	{
+		if (MK_LBUTTON == wParam && HIWORD(lParam) < TITLE_SIZE)//点击的只是左键,并且在标题上
+		{
+			PANE* ppe = (PANE*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
+			RECT rc;
+			GetClientRect(hWnd, &rc);
+			int szPos = LOWORD(lParam);
+			int place = rc.right - ((ppe->mark & 0xFFFFFFFC) ? SPLITER_WIDTH : 0);
+			if ((szPos < place && szPos > place - TITLE_SIZE))
+			{
+				if ((ppe->markMouseClick & 0x01) == 0) ppe->markMouseClick |= 0x01;
+			}
+			else if (szPos < place - (TITLE_SIZE + 5) && szPos >place - (TITLE_SIZE * 2 + 5))
+			{
+				if ((ppe->markMouseClick & 0x02) == 0) ppe->markMouseClick |= 0x02;
+			}
+			else if (szPos <place - (TITLE_SIZE * 2 + 10) && szPos > place - (TITLE_SIZE * 3 + 10))
+			{
+				if ((ppe->markMouseClick & 0x08) == 0) ppe->markMouseClick |= 0x08;
+			}
+		}
+		break;
+	}
+	case WM_LBUTTONUP: //鼠标左键点下又松开
+	{
+		if (0 == wParam && HIWORD(lParam) < TITLE_SIZE)//点击的只是左键,并且在标题上
+		{
+			PANE* ppe = (PANE*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
+			RECT rc;
+			GetClientRect(hWnd, &rc);
+			int szPos = LOWORD(lParam);
+			int place = rc.right - ((ppe->mark & 0xFFFFFFFC) ? SPLITER_WIDTH : 0);
+			int markRepaint = 0;
+			if ((szPos < place && szPos > place - TITLE_SIZE))
+			{
+				if ((ppe->markMouseClick & 0x01)) /*此处是已点击关闭按钮需要响应的代码*/
+				{
+					ShowWindow(hWnd, SW_HIDE);
+					if (ppe->hSidebarConnected) Sidebar_reset(ppe->hSidebarConnected);
+				}
+			}
+			else if (szPos < place - (TITLE_SIZE + 5) && szPos >place - (TITLE_SIZE * 2 + 5))
+			{
+				if ((ppe->markMouseClick & 0x02)) 
+				{ 
+					markRepaint = 1;
+					ppe->markMouseClick ^= 0x04; //翻转第三位
+					/*此处是已点击钉按钮需要响应的代码*/
+				}
+			}
+			else if (szPos <place - (TITLE_SIZE * 2 + 10) && szPos > place - (TITLE_SIZE * 3 + 10))
+			{
+				if ((ppe->markMouseClick & 0x08)) 
+				{/*此处是已点击菜单按钮需要响应的代码*/
+					POINT	p;
+					GetCursorPos(&p);
+					TrackPopupMenu(ppe->hMenu, TPM_LEFTBUTTON,p.x, p.y, 0, hWnd, NULL);
+				}
+			}
+			if (markRepaint)
+			{
+				RECT rc;
+				GetClientRect(hWnd, &rc);
+				rc.bottom = TITLE_SIZE;
+				InvalidateRect(hWnd, &rc, TRUE);
+				Pane_Title_paint(hWnd, &rc);
+			}
+		}
+		break;
+	}
+	case WM_PAINT:
+	{
+		PANE* ppe = (PANE*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
+		RECT rc = {};
+		GetClientRect(hWnd, &rc);
+		rc.right -= (ppe->mark & PANE_SP_LEFT) ? SPLITER_WIDTH : 0;
+		rc.bottom = TITLE_SIZE;
+		PAINTSTRUCT ps;
+		HDC hdc = BeginPaint(hWnd, &ps);
+		BitBlt(hdc, (ppe->mark & PANE_SP_LEFT) ? SPLITER_WIDTH : 0, 0, rc.right, rc.bottom, ppe->hdc, 0, 0, SRCCOPY);
+		EndPaint(hWnd, &ps);
+		break;
+	}
+	case WM_KILLFOCUS:
+		MessageBox(hWnd, _TEXT("Closea"), _TEXT("Closea"), MB_OK);
+		break;
+	case WM_COMMAND:
+		switch (wParam)
+		{
+		case PANE_ID_SP + 2 + 0:
+			MessageBox(hWnd, _TEXT("Close"), _TEXT("Close"), MB_OK);
+			break;
+		case PANE_ID_SP + 2 + 1:
+			MessageBox(hWnd, _TEXT("打开"), _TEXT("打开"), MB_OK);
+			break;
+		default:
+			break;
+		}
+		break;
+	case WM_DESTROY:
+	{
+		PANE* ppe = (PANE*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
+		for (int i = 0; i != 8; i++)
+		{
+			DestroyIcon(ppe->hIcon[i]);
+		}
+		DeleteObject(ppe->hBitmap);
+		DeleteDC(ppe->hdc);
+		break;
+	}
+	case MSG_PANE_SB:
+	{
+		PANE* ppe = (PANE*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
+		ppe->hSidebarConnected = (HWND)lParam;
+		break;
+	}
+	default:
+		return ::DefWindowProc(hWnd, message, wParam, lParam);
+	}
+	return (INT_PTR)FALSE;
+}
+
+void Pane_Title_paint(HWND hWnd, RECT* prct)
+{
+	PANE* ppe = (PANE*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
+	//创建标题用的hdc
+	DeleteObject(ppe->hBitmap);
+	HDC hdc = GetDC(hWnd);
+	prct->right -= ((ppe->mark & 0xFFFFFFFC) ? SPLITER_WIDTH : 0);
+	ppe->hBitmap = CreateCompatibleBitmap(hdc, prct->right, prct->bottom);
+	SelectObject(ppe->hdc, ppe->hBitmap);
+
+	SetBkColor(ppe->hdc, RGB(0, 0, 255));
+	ExtTextOut(ppe->hdc, 0, 0, ETO_OPAQUE, prct, NULL, 0, NULL);
+	TextOut(ppe->hdc, 0, ppe->fontStart, ppe->titleName, ppe->szTitleName);
+	int place = prct->right - TITLE_SIZE - SPLITER_WIDTH;
+	DrawIconEx(ppe->hdc, place, 0, ppe->hIcon[(ppe->markMouse & 0x01) ? 1 : 0], TITLE_SIZE, TITLE_SIZE, 0, NULL, DI_NORMAL);
+	place -= (TITLE_SIZE + 5);
+	DrawIconEx(ppe->hdc, place, 0, \
+		ppe->hIcon[ppe->markMouseClick& 0x04 ? ((ppe->markMouse & 0x02) ? 5 : 4) :((ppe->markMouse & 0x02) ? 3 : 2)], \
+		TITLE_SIZE, TITLE_SIZE, 0, NULL, DI_NORMAL);
+	place -= (TITLE_SIZE + 5);
+	DrawIconEx(ppe->hdc, place, 0, ppe->hIcon[(ppe->markMouse & 0x04) ? 7 : 6], TITLE_SIZE, TITLE_SIZE, 0, NULL, DI_NORMAL);
+	ReleaseDC(hWnd, hdc);
+}
+
+BYTE ANDmaskIconClose[] = {
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XC0,0X7F,0XFF,0XFF,0XFE,0X03,0XFF,0XFF,0XC0,0X3F,0XFF,0XFF,0XFC,0X03,0XFF,
+	0XFF,0XC0,0X1F,0XFF,0XFF,0XF8,0X03,0XFF,0XFF,0XC0,0X0F,0XFF,0XFF,0XF0,0X03,0XFF,
+	0XFF,0XC0,0X07,0XFF,0XFF,0XE0,0X03,0XFF,0XFF,0XC0,0X03,0XFF,0XFF,0XC0,0X03,0XFF,
+	0XFF,0XC0,0X01,0XFF,0XFF,0X80,0X07,0XFF,0XFF,0XE0,0X00,0XFF,0XFF,0X00,0X0F,0XFF,
+	0XFF,0XF0,0X00,0X7F,0XFE,0X00,0X1F,0XFF,0XFF,0XF8,0X00,0X3F,0XFC,0X00,0X3F,0XFF,
+	0XFF,0XFC,0X00,0X1F,0XF8,0X00,0X7F,0XFF,0XFF,0XFE,0X00,0X0F,0XF0,0X00,0XFF,0XFF,
+	0XFF,0XFF,0X00,0X07,0XE0,0X01,0XFF,0XFF,0XFF,0XFF,0X80,0X03,0XC0,0X03,0XFF,0XFF,
+	0XFF,0XFF,0XC0,0X01,0X80,0X03,0XFF,0XFF,0XFF,0XFF,0XE0,0X00,0X00,0X07,0XFF,0XFF,
+	0XFF,0XFF,0XF0,0X00,0X00,0X0F,0XFF,0XFF,0XFF,0XFF,0XF8,0X00,0X00,0X1F,0XFF,0XFF,
+	0XFF,0XFF,0XFC,0X00,0X00,0X3F,0XFF,0XFF,0XFF,0XFF,0XFE,0X00,0X00,0X7F,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0X00,0X00,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0X80,0X01,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0X80,0X01,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0X00,0X00,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFE,0X00,0X00,0X7F,0XFF,0XFF,0XFF,0XFF,0XFC,0X00,0X00,0X3F,0XFF,0XFF,
+	0XFF,0XFF,0XF8,0X00,0X00,0X1F,0XFF,0XFF,0XFF,0XFF,0XF0,0X00,0X00,0X0F,0XFF,0XFF,
+	0XFF,0XFF,0XE0,0X00,0X00,0X07,0XFF,0XFF,0XFF,0XFF,0XC0,0X01,0X80,0X03,0XFF,0XFF,
+	0XFF,0XFF,0X80,0X03,0XC0,0X01,0XFF,0XFF,0XFF,0XFF,0X00,0X07,0XE0,0X00,0XFF,0XFF,
+	0XFF,0XFE,0X00,0X0F,0XF0,0X00,0X7F,0XFF,0XFF,0XFC,0X00,0X1F,0XF8,0X00,0X3F,0XFF,
+	0XFF,0XF8,0X00,0X3F,0XFC,0X00,0X1F,0XFF,0XFF,0XF0,0X00,0X7F,0XFE,0X00,0X0F,0XFF,
+	0XFF,0XE0,0X00,0XFF,0XFF,0X00,0X07,0XFF,0XFF,0XC0,0X01,0XFF,0XFF,0X80,0X03,0XFF,
+	0XFF,0XC0,0X03,0XFF,0XFF,0XC0,0X03,0XFF,0XFF,0XC0,0X07,0XFF,0XFF,0XE0,0X03,0XFF,
+	0XFF,0XC0,0X0F,0XFF,0XFF,0XF0,0X03,0XFF,0XFF,0XC0,0X1F,0XFF,0XFF,0XF8,0X03,0XFF,
+	0XFF,0XC0,0X3F,0XFF,0XFF,0XFC,0X03,0XFF,0XFF,0XC0,0X7F,0XFF,0XFF,0XFE,0X03,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+};
+BYTE ANDmaskIconDing1[] = {
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFC,0X7F,0XFF,0XFF,0X1F,0XFF,0XFF,0XFF,0XF8,0X3F,0XFF,0XFF,0X0F,0XFF,
+	0XFF,0XFF,0XF9,0X3F,0XFF,0XFE,0X07,0XFF,0XFF,0XFF,0XF1,0X9F,0XFF,0XFC,0X67,0XFF,
+	0XFF,0XFF,0XF3,0X9F,0XFF,0XFC,0XE3,0XFF,0XFF,0XFF,0XE3,0XCF,0XFF,0XFC,0XF3,0XFF,
+	0XFF,0XFF,0XE7,0XCF,0XFF,0XF9,0XF3,0XFF,0XFF,0XFF,0XE7,0XC0,0X00,0X01,0XF1,0XFF,
+	0XFF,0XFF,0XC7,0XE0,0X00,0X01,0XF9,0XFF,0XFF,0XFF,0XCF,0XFF,0XFF,0XFF,0XF9,0XFF,
+	0XFF,0XC0,0X0F,0XFF,0XFF,0XFF,0XF9,0XFF,0XFE,0X00,0X0F,0XFF,0XFF,0XFF,0XF9,0XFF,
+	0XFE,0X00,0X0F,0XFF,0XFF,0XFF,0XF9,0XFF,0XFF,0XC0,0X0F,0XFF,0XFF,0XFF,0XF9,0XFF,
+	0XFF,0XFF,0XCF,0XFF,0XFF,0XFF,0XF9,0XFF,0XFF,0XFF,0XC7,0XE0,0X00,0X01,0XF9,0XFF,
+	0XFF,0XFF,0XE7,0XC0,0X00,0X01,0XF1,0XFF,0XFF,0XFF,0XE7,0XCF,0XFF,0XF9,0XF3,0XFF,
+	0XFF,0XFF,0XE3,0XCF,0XFF,0XFC,0XF3,0XFF,0XFF,0XFF,0XF3,0X9F,0XFF,0XFC,0XE3,0XFF,
+	0XFF,0XFF,0XF1,0X9F,0XFF,0XFC,0X67,0XFF,0XFF,0XFF,0XF9,0X3F,0XFF,0XFE,0X07,0XFF,
+	0XFF,0XFF,0XF8,0X3F,0XFF,0XFF,0X0F,0XFF,0XFF,0XFF,0XFC,0X7F,0XFF,0XFF,0X1F,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+};
+BYTE ANDmaskIconDing2[] = {
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XE0,0X07,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0X00,0X00,0XFF,0XFF,0XFF,0XFF,0XFF,0XFC,0X00,0X00,0X3F,0XFF,0XFF,
+	0XFF,0XFF,0XF8,0X00,0X00,0X1F,0XFF,0XFF,0XFF,0XFF,0XF0,0X00,0X00,0X0F,0XFF,0XFF,
+	0XFF,0XFF,0XF0,0X00,0X00,0X0F,0XFF,0XFF,0XFF,0XFF,0XF0,0X00,0X00,0X0F,0XFF,0XFF,
+	0XFF,0XFF,0XFC,0X00,0X00,0X3F,0XFF,0XFF,0XFF,0XFF,0XFE,0X00,0X20,0X7F,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XC0,0X23,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XE0,0X27,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XE0,0X27,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XE0,0X27,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XE0,0X27,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XE0,0X27,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XE0,0X27,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XE0,0X27,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XE0,0X27,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XE0,0X27,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XE0,0X27,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XE0,0X27,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XE0,0X27,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XE0,0X27,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XE0,0X27,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XE0,0X27,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XE0,0X27,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XE0,0X27,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0X80,0X21,0XFF,0XFF,0XFF,0XFF,0XFF,0XFE,0X00,0X00,0X7F,0XFF,0XFF,
+	0XFF,0XFF,0XF8,0X00,0X00,0X1F,0XFF,0XFF,0XFF,0XFF,0XF0,0X00,0X00,0X0F,0XFF,0XFF,
+	0XFF,0XFF,0XF0,0X00,0X00,0X0F,0XFF,0XFF,0XFF,0XFF,0XF0,0X00,0X00,0X0F,0XFF,0XFF,
+	0XFF,0XFF,0XF8,0X00,0X00,0X1F,0XFF,0XFF,0XFF,0XFF,0XFE,0X00,0X00,0X7F,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0X80,0X01,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XF8,0X1F,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFC,0X3F,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFC,0X3F,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFC,0X3F,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFC,0X3F,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFC,0X3F,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFC,0X3F,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFC,0X3F,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFC,0X3F,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFE,0X7F,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFE,0X7F,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFE,0X7F,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+};
+BYTE ANDmaskIconDown[] = {
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFE,0X00,0X0F,0XFF,0XFF,0XF0,0X00,0X7F,
+	0XFF,0X00,0X07,0XFF,0XFF,0XE0,0X00,0XFF,0XFF,0X80,0X03,0XFF,0XFF,0XC0,0X01,0XFF,
+	0XFF,0XC0,0X01,0XFF,0XFF,0X80,0X03,0XFF,0XFF,0XE0,0X00,0XFF,0XFF,0X00,0X07,0XFF,
+	0XFF,0XF0,0X00,0X7F,0XFE,0X00,0X0F,0XFF,0XFF,0XF8,0X00,0X3F,0XFC,0X00,0X1F,0XFF,
+	0XFF,0XFC,0X00,0X1F,0XF8,0X00,0X3F,0XFF,0XFF,0XFE,0X00,0X0F,0XF0,0X00,0X7F,0XFF,
+	0XFF,0XFF,0X00,0X07,0XE0,0X00,0XFF,0XFF,0XFF,0XFF,0X80,0X03,0XC0,0X01,0XFF,0XFF,
+	0XFF,0XFF,0XC0,0X01,0X80,0X03,0XFF,0XFF,0XFF,0XFF,0XE0,0X00,0X00,0X07,0XFF,0XFF,
+	0XFF,0XFF,0XF0,0X00,0X00,0X0F,0XFF,0XFF,0XFF,0XFF,0XF8,0X00,0X00,0X1F,0XFF,0XFF,
+	0XFF,0XFF,0XFC,0X00,0X00,0X3F,0XFF,0XFF,0XFF,0XFF,0XFE,0X00,0X00,0X7F,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0X00,0X00,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0X80,0X01,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XC0,0X03,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XE0,0X07,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XF0,0X0F,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XF8,0X1F,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFC,0X3F,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFE,0X7F,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+};
+BYTE XORmaskIcon[] = {
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,
+	0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,
+	0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,
+	0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,
+	0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,
+	0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,
+	0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,
+	0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,
+	0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,
+	0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,
+	0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,
+	0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,
+	0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,
+	0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,
+	0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,
+	0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,
+	0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,
+	0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,
+	0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,
+	0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,
+	0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,
+	0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,
+	0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,
+	0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,
+	0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,
+	0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,
+	0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,
+	0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,0XF0,0X00,0X00,0X00,0X00,0X00,0X00,0X0F,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+	0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,
+};
+BYTE XORmaskIconEmpty[] = {
+	0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,
+	0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,
+	0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,
+	0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,
+	0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,
+	0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,
+	0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,
+	0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,
+	0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,
+	0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,
+	0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,
+	0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,
+	0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,
+	0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,
+	0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,
+	0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,
+	0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,
+	0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,
+	0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,
+	0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,
+	0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,
+	0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,
+	0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,
+	0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,
+	0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,
+	0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,
+	0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,
+	0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,
+	0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,
+	0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,
+	0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,
+	0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,
+};
+BOOL CALLBACK PaneExample_Proc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+	switch (message)
+	{
+	case WM_INITDIALOG:
+	{
+		RECT * rc = (RECT*)lParam;
+		MoveWindow(hDlg, 0,0,rc->right,rc->bottom, TRUE);
+		return TRUE;
+	}
+	case WM_COMMAND:
+		switch (LOWORD(wParam))
+		{
+		case IDOK:
+			MessageBox(hDlg, _TEXT("abc"), _TEXT("cde"), MB_OK);
+			break;
+		case IDCANCEL:
+			DestroyWindow(hDlg);
+			InvalidateRect(GetParent(hDlg), NULL, TRUE); //强制父窗口重绘
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+
+//以下是名叫框架的窗口容器
+typedef struct __FRAME_STRUCT__
+{
+	HINSTANCE			hInst; //进程实例句柄
+	FRAME_ELEM*			fe; //指向FRAME_ELEM
+	HWND				hParent;
+
+}FRAME;
+LRESULT  CALLBACK Frame_Proc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+HWND Frame(HWND hParent, int ID, RECT* rc)
+{
+	HINSTANCE hInst = (HINSTANCE)GetWindowLong(hParent, GWL_HINSTANCE);
+	TCHAR* szClassName = _TEXT("FRAME_CLASS");
+	static ATOM sclass = 0;
+	if (!sclass)
+	{
+		WNDCLASSEXW wcex = {};
+		wcex.cbSize = sizeof(WNDCLASSEX);
+		wcex.style = CS_HREDRAW | CS_VREDRAW;
+		wcex.lpfnWndProc = Frame_Proc;
+		wcex.hInstance = hInst;
+		wcex.hCursor = LoadCursor(NULL, IDC_ARROW);
+		//wcex.hbrBackground = (HBRUSH)(COLOR_MENU + 1);
+		wcex.lpszClassName = szClassName;
+		sclass = RegisterClassExW(&wcex);
+		if (sclass = RegisterClassExW(&wcex)) return NULL;
+	}
+
+	FRAME* fs = (FRAME*)malloc(sizeof(FRAME));
+	if (fs == NULL) return NULL;
+	memset(fs, 0, sizeof(FRAME));
+	fs->hInst = hInst;
+	fs->hParent = hParent;
+	HWND hChild = CreateWindowEx(0, szClassName, NULL, WS_CHILD | WS_VISIBLE | WS_DLGFRAME, \
+		rc->left, rc->top, \
+		rc->right, rc->bottom, \
+		hParent, HMENU(ID), hInst, (LPVOID)fs);
+	if (!hChild) return NULL;
+	return hChild;
+}
+LRESULT  CALLBACK Frame_Proc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	switch (message)
 	{
 	case WM_CREATE:
 	{
-		
+		FRAME* fs = (FRAME*)((LPCREATESTRUCT(lParam))->lpCreateParams);
+		SetWindowLongPtr(hWnd, GWLP_USERDATA, LONG_PTR(fs));
 		return (INT_PTR)TRUE;
 	}
-	case WM_SIZE:
-		break;
 	case WM_PAINT:
 	{
+		FRAME* fs = (FRAME*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
 		PAINTSTRUCT ps;
 		HDC hdc = BeginPaint(hWnd, &ps);
-		// TODO: 在此处添加使用 hdc 的任何绘图代码...
+		RECT rc = RECT{ 0,0,32,32 };
+		DrawFrameControl(hdc, &rc, DFC_BUTTON, DFCS_BUTTONPUSH| DFCS_PUSHED);
+		SetBkColor(hdc, RGB(255, 255, 0));
+		DrawText(hdc, _TEXT("点我"), 2, &rc, DT_SINGLELINE | DT_VCENTER);
 		EndPaint(hWnd, &ps);
 		break;
 	}
 	case WM_DESTROY:
 	{
+		FRAME* fs = (FRAME*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
 		break;
 	}
 	default:
@@ -999,25 +1597,93 @@ LRESULT  CALLBACK Pane_Proc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 }
 
 
-BOOL CALLBACK PaneExample_Proc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+
+//以下是名叫框架的窗口容器
+typedef struct __EDITOR_STRUCT__
+{
+	HINSTANCE			hInst; //进程实例句柄
+	HWND				hParent;
+	TCHAR               ptcFileName[MAX_PATH];
+}EDITOR;
+LRESULT  CALLBACK Editor_Proc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+HWND Editor(HWND hParent, int ID, TCHAR* ptcFileName, RECT* rc)
+{
+	HINSTANCE hInst = (HINSTANCE)GetWindowLong(hParent, GWL_HINSTANCE);
+	TCHAR* szClassName = _TEXT("EDITOR_CLASS");
+	static ATOM sclass = 0;
+	if (!sclass)
+	{
+		WNDCLASSEXW wcex = {};
+		wcex.cbSize = sizeof(WNDCLASSEX);
+		wcex.style = CS_HREDRAW | CS_VREDRAW;
+		wcex.lpfnWndProc = Editor_Proc;
+		wcex.hInstance = hInst;
+		wcex.hCursor = LoadCursor(NULL, IDC_ARROW);
+		//wcex.hbrBackground = (HBRUSH)(COLOR_MENU + 1);
+		wcex.lpszClassName = szClassName;
+		sclass = RegisterClassExW(&wcex);
+		if (sclass = RegisterClassExW(&wcex)) return NULL;
+	}
+
+	EDITOR* es = (EDITOR*)malloc(sizeof(EDITOR));
+	if (es == NULL) return NULL;
+	memset(es, 0, sizeof(EDITOR));
+	es->hInst = hInst;
+	es->hParent = hParent;
+	lstrcpyn(es->ptcFileName, ptcFileName, MAX_PATH);
+	HWND hChild = CreateWindowEx(0, szClassName, NULL, WS_CHILD | WS_VISIBLE | WS_DLGFRAME, \
+		rc->left, rc->top, \
+		rc->right, rc->bottom, \
+		hParent, HMENU(ID), hInst, (LPVOID)es);
+	if (!hChild) return NULL;
+	return hChild;
+}
+LRESULT  CALLBACK Editor_Proc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	switch (message)
 	{
-	case WM_INITDIALOG:
-		MoveWindow(hDlg, SIDEBAR_WIDTH, SIDEBAR_WIDTH, 200, 300, TRUE);
-		return TRUE;
-
-	case WM_COMMAND:
-		switch (LOWORD(wParam))
-		{
-		case IDOK:
-		case IDCANCEL:
-			DestroyWindow(hDlg);
-			return TRUE;
-		}
+	case WM_CREATE:
+	{
+		EDITOR* es = (EDITOR*)((LPCREATESTRUCT(lParam))->lpCreateParams);
+		SetWindowLongPtr(hWnd, GWLP_USERDATA, LONG_PTR(es));
+		return (INT_PTR)TRUE;
 	}
-	return FALSE;
+	case WM_PAINT:
+	{
+		EDITOR* es = (EDITOR*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
+		PAINTSTRUCT ps;
+		HDC hdc = BeginPaint(hWnd, &ps);
+		RECT rc = RECT{ 0,0,32,32 };
+		DrawFrameControl(hdc, &rc, DFC_BUTTON, DFCS_BUTTONPUSH | DFCS_PUSHED);
+		SetBkColor(hdc, RGB(255, 255, 0));
+		DrawText(hdc, _TEXT("点我"), 2, &rc, DT_SINGLELINE | DT_VCENTER);
+		EndPaint(hWnd, &ps);
+		break;
+	}
+	case WM_DESTROY:
+	{
+		EDITOR* es = (EDITOR*)GetWindowLongPtr(hWnd, GWLP_USERDATA);
+		break;
+	}
+	default:
+		return ::DefWindowProc(hWnd, message, wParam, lParam);
+	}
+	return (INT_PTR)FALSE;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 int ByteToHex(char* byte, int byte_len, char* hex, int hex_len)
 {
@@ -1080,3 +1746,7 @@ void Dialog_center(HWND hDlg)
 	if (p1.y + p2.y > cy) p1.y = cy - p2.y;
 	MoveWindow(hDlg,p1.x,p1.y, p2.x, p2.y,TRUE);
 }
+
+
+
+

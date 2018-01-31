@@ -56,5 +56,14 @@
     <Image Include="Co.ico">
       <Filter>资源文件</Filter>
     </Image>
+    <Image Include="res\sys.ico">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="res\config.ico">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="res\proj.ico">
+      <Filter>资源文件</Filter>
+    </Image>
   </ItemGroup>
 </Project>

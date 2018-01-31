@@ -13,3 +13,4 @@ Win32/*
 x64/*
 bin/*
 freeglut/*
+Opencv/*

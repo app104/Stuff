@@ -175,6 +175,9 @@
   </ItemGroup>
   <ItemGroup>
     <Image Include="Co.ico" />
+    <Image Include="res\config.ico" />
+    <Image Include="res\proj.ico" />
+    <Image Include="res\sys.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

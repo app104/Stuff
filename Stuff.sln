@@ -1,13 +1,15 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
-VisualStudioVersion = 15.0.27004.2010
+VisualStudioVersion = 15.0.27130.2010
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RunVMware", "RunVMware\RunVMware.vcxproj", "{0F7B2257-737F-4BA6-BA73-4AC1CB13D72B}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RunHide", "RunHide\RunHide.vcxproj", "{82130FD5-746B-4DEE-9470-357F0DC9D003}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Co", "Co\Co.vcxproj", "{1CBFA120-4CFB-476F-9D87-F11B67F0169F}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Opencv", "Opencv\Opencv.vcxproj", "{821908BA-B225-4105-82B7-B4657CB2277F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -41,6 +43,14 @@ Global
 		{1CBFA120-4CFB-476F-9D87-F11B67F0169F}.Release|x64.Build.0 = Release|x64
 		{1CBFA120-4CFB-476F-9D87-F11B67F0169F}.Release|x86.ActiveCfg = Release|Win32
 		{1CBFA120-4CFB-476F-9D87-F11B67F0169F}.Release|x86.Build.0 = Release|Win32
+		{821908BA-B225-4105-82B7-B4657CB2277F}.Debug|x64.ActiveCfg = Debug|x64
+		{821908BA-B225-4105-82B7-B4657CB2277F}.Debug|x64.Build.0 = Debug|x64
+		{821908BA-B225-4105-82B7-B4657CB2277F}.Debug|x86.ActiveCfg = Debug|Win32
+		{821908BA-B225-4105-82B7-B4657CB2277F}.Debug|x86.Build.0 = Debug|Win32
+		{821908BA-B225-4105-82B7-B4657CB2277F}.Release|x64.ActiveCfg = Release|x64
+		{821908BA-B225-4105-82B7-B4657CB2277F}.Release|x64.Build.0 = Release|x64
+		{821908BA-B225-4105-82B7-B4657CB2277F}.Release|x86.ActiveCfg = Release|Win32
+		{821908BA-B225-4105-82B7-B4657CB2277F}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

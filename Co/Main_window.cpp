@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "Co.h"
 #include "utils.h"
+#include "strsafe.h"
 
 LRESULT CALLBACK	Main_proc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 INT_PTR CALLBACK    About_proc(HWND, UINT, WPARAM, LPARAM);
@@ -68,20 +69,35 @@ LRESULT CALLBACK Main_proc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam
 	{
 	case WM_CREATE:
 	{
+		RECT rc;
+		//GetClientRect(hWnd, &rc);
 		//SB_ELEM se[] = {
-		//	{ 2048,_TEXT("2048"),0,LoadIcon(hInst,MAKEINTRESOURCE(IDI_CO)) ,SIZE{}},
-		//	{ 2049,_TEXT("解决方案"),0,LoadIcon(NULL,IDI_QUESTION),SIZE{}},
-		//	{ 2050,_TEXT("资源视图"),0,LoadIcon(NULL,IDI_INFORMATION),SIZE{}},
-		//	{ 2051,_TEXT("资源管理"),0,LoadIcon(NULL,IDI_SHIELD),SIZE{}}
+		//	{ 2048,_TEXT("系统"),0,LoadIcon(hInst,MAKEINTRESOURCE(IDI_SYS)) ,SIZE{}},
+		//	{ 2049,_TEXT("工程"),0,LoadIcon(hInst,MAKEINTRESOURCE(IDI_PROJ)),SIZE{}},
+		//	{ 2050,_TEXT("配置"),0,LoadIcon(hInst,MAKEINTRESOURCE(IDI_CONFIG)),SIZE{}},
 		//};
-		//Sidebar(hWnd,20488, TYPE_SBTOP,se,4,0,0,300);
-		RECT rc = {0,0,300,500};
-		PANE_ELEM pa[] = {
-			{IDD_PROJ, NULL,PaneExample_Proc, NULL,RECT{}}
-		};
-		Pane(hWnd, 20489, NULL, 0, &rc);
+		//Sidebar(hWnd,20488, TYPE_SBLEFT,se,3,0,0,rc.bottom);
+
+		//rc.left = SIDEBAR_WIDTH;
+		//rc.right = 300;
+		//PANE_ELEM ppa[] = {
+		//	{ _TEXT("系统"),IDD_PROJ, NULL,PaneExample_Proc, NULL,RECT{} },
+		//	{ _TEXT("工程"),IDD_PROJ, NULL,PaneExample_Proc, NULL,RECT{} },
+		//	{ _TEXT("配置"),IDD_PROJ, NULL,PaneExample_Proc, NULL,RECT{} }, 
+		//};
+		//Pane(hWnd, 20489, ppa, 3, &rc, PANE_SP_RIGHT);
+		//Pane_setsb(GetDlgItem(hWnd, 20489), GetDlgItem(hWnd, 20488));
+		//ShowWindow(GetDlgItem(hWnd, 20489), SW_HIDE);
+		GetClientRect(hWnd, &rc);
+		Editor(hWnd, 20490,_TEXT("D:\\hex.c"), &rc);
+
 		return TRUE;
 	}
+	case MSG_SBBUTTON:
+	if(wParam){
+		ShowWindow(GetDlgItem(hWnd, 20489), SW_SHOW);
+	}
+		break;
 	case WM_SIZE:
 	{
 		//Sidebar_len(GetDlgItem(hWnd, 20488), HIWORD(lParam));
@@ -125,6 +141,9 @@ LRESULT CALLBACK Main_proc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam
 		PAINTSTRUCT ps;
 		HDC hdc = BeginPaint(hWnd, &ps);
 		// TODO: 在此处添加使用 hdc 的任何绘图代码...
+
+		//RECT rc = { 400,400,528,528 };
+		//DrawFrameControl(hdc, &rc, DFC_MENU, DFCS_MENUCHECK);
 		EndPaint(hWnd, &ps);
 	}
 	break;
@@ -157,3 +176,5 @@ INT_PTR CALLBACK About_proc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPara
 	}
 	return (INT_PTR)FALSE;
 }
+
+
